@@ -12,6 +12,11 @@ CREATE SCHEMA auth;
 CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 GRANT USAGE ON SCHEMA auth TO authenticated; GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+CREATE SCHEMA storage;
+CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean);
+CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text, name text);
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+GRANT USAGE ON SCHEMA storage TO authenticated; GRANT ALL ON storage.objects TO authenticated;
 `;
 
 const U = {
@@ -20,6 +25,7 @@ const U = {
   parent: "00000000-0000-0000-0000-00000000000c",
   stranger: "00000000-0000-0000-0000-00000000000d",
   teacher2: "00000000-0000-0000-0000-00000000000e",
+  registrar: "00000000-0000-0000-0000-00000000000f",
 };
 
 let failures = 0;
@@ -46,7 +52,7 @@ console.log(`PASS  ${migrations.length} migrations applied`);
 
 await db.exec(`INSERT INTO auth.users VALUES
   ('${U.admin}', 'admin@school.et'), ('${U.teacher}', 'teacher@school.et'),
-  ('${U.parent}', 'parent@mail.et'), ('${U.stranger}', 'other@mail.et'), ('${U.teacher2}', 'teacher2@school.et');`);
+  ('${U.parent}', 'parent@mail.et'), ('${U.stranger}', 'other@mail.et'), ('${U.teacher2}', 'teacher2@school.et'), ('${U.registrar}', 'registrar@school.et');`);
 
 const school = (await as(U.admin, "INSERT INTO sms.schools (name) VALUES ('Test School') RETURNING id")).rows[0].id;
 const adminRole = await as(U.admin, "SELECT role FROM sms.school_members WHERE school_id = $1", [school]);
@@ -238,9 +244,115 @@ check("changing a decision moves the student", (await activeIn(kid)).sort().join
 check("un-graduating restores active status",
   (await as(U.admin, "SELECT status FROM sms.students WHERE id = $1", [otherKid])).rows[0].status === "active");
 
+// Registrar: manages student records, nothing else.
+await as(U.admin, "SELECT sms.add_member_by_email($1, 'registrar@school.et', 'registrar', 'Registrar')", [school]);
+const regKid = (await as(U.registrar, "INSERT INTO sms.students (school_id, first_name, father_name) VALUES ($1, 'Reg', 'Istered') RETURNING id", [school])).rows[0].id;
+check("registrar registers a student", !!regKid);
+check("registrar enrolls and adds a guardian",
+  (await fails(U.registrar, "INSERT INTO sms.enrollments (school_id, class_id, student_id) VALUES ($1, $2, $3)", [school, cls, regKid])) === null
+  && (await fails(U.registrar, "SELECT sms.add_guardian($1, 'Guardian')", [regKid])) === null);
+check("registrar cannot create classes",
+  !!(await fails(U.registrar, "INSERT INTO sms.classes (school_id, academic_year_id, grade_level, section) VALUES ($1, $2, 9, 'Z')", [school, year])));
+check("registrar cannot take attendance",
+  !!(await fails(U.registrar, "INSERT INTO sms.attendance (school_id, class_id, student_id, status) VALUES ($1, $2, $3, 'present')", [school, cls, regKid])));
+check("registrar cannot add staff", !!(await fails(U.registrar, "SELECT sms.add_member_by_email($1, 'other@mail.et', 'teacher')", [school])));
+check("registrar cannot run promotion", !!(await fails(U.registrar, "SELECT sms.promote_students($1, $2, '[]'::jsonb)", [year, year2])));
+check("registrar reads results for transcripts", (await as(U.registrar, "SELECT * FROM sms.scores")).rows.length > 0);
+check("teacher cannot register students",
+  !!(await fails(U.teacher, "INSERT INTO sms.students (school_id, first_name, father_name) VALUES ($1, 'No', 'Way')", [school])));
+
+// Student files in Storage: <school>/<student>/...
+const objectAt = (user, path) => as(user, "INSERT INTO storage.objects (bucket_id, name) VALUES ('student-files', $1)", [path]);
+check("student-files bucket exists", (await db.query("SELECT 1 FROM storage.buckets WHERE id = 'student-files'")).rows.length === 1);
+await objectAt(U.registrar, `${school}/${kid}/photo`);
+await objectAt(U.admin, `${school}/${otherKid}/photo`);
+check("teacher cannot upload student files", !!(await fails(U.teacher, "INSERT INTO storage.objects (bucket_id, name) VALUES ('student-files', $1)", [`${school}/${kid}/x`])));
+check("malformed path is refused", !!(await fails(U.admin, "INSERT INTO storage.objects (bucket_id, name) VALUES ('student-files', 'not-a-school/photo')")));
+check("student in another school's folder is refused",
+  !!(await fails(U.admin, "INSERT INTO storage.objects (bucket_id, name) VALUES ('student-files', $1)", [`${U.stranger}/${kid}/photo`])));
+const parentFiles = (await as(U.parent, "SELECT name FROM storage.objects")).rows;
+check("parent opens only own child's files", parentFiles.length === 1 && parentFiles[0].name.includes(kid));
+check("teacher opens student files", (await as(U.teacher, "SELECT * FROM storage.objects")).rows.length === 2);
+check("stranger opens no student files", (await as(U.stranger, "SELECT * FROM storage.objects")).rows.length === 0);
+
+// Admissions.
+const app = (await as(U.registrar,
+  "INSERT INTO sms.admission_applications (school_id, grade_applied, first_name, father_name, guardian_name, guardian_email) VALUES ($1, 7, 'New', 'Comer', 'W/ro Parent', 'parent@mail.et') RETURNING id",
+  [school])).rows[0].id;
+check("teacher cannot see applications", (await as(U.teacher, "SELECT * FROM sms.admission_applications")).rows.length === 0);
+check("parent cannot see applications", (await as(U.parent, "SELECT * FROM sms.admission_applications")).rows.length === 0);
+check("status cannot be set to enrolled directly",
+  /Use Enroll/.test(await fails(U.registrar, "UPDATE sms.admission_applications SET status = 'enrolled' WHERE id = $1", [app]) ?? ""));
+check("only accepted applications are enrolled", /Only accepted/.test(await fails(U.registrar, "SELECT sms.enroll_applicant($1, $2)", [app, cls]) ?? ""));
+await as(U.registrar, "UPDATE sms.admission_applications SET status = 'accepted' WHERE id = $1", [app]);
+check("teacher cannot enroll", !!(await fails(U.teacher, "SELECT sms.enroll_applicant($1, $2)", [app, cls])));
+const newStudent = (await as(U.registrar, "SELECT sms.enroll_applicant($1, $2) AS id", [app, cls])).rows[0].id;
+const enrolled = (await as(U.admin, "SELECT s.student_code, (SELECT count(*) FROM sms.enrollments e WHERE e.student_id = s.id AND e.class_id = $2) AS enr FROM sms.students s WHERE s.id = $1", [newStudent, cls])).rows[0];
+check("enrolling creates the student with an ID and class", !!enrolled?.student_code && Number(enrolled.enr) === 1, JSON.stringify(enrolled));
+check("guardian email links the parent", (await as(U.parent, "SELECT id FROM sms.students WHERE id = $1", [newStudent])).rows.length === 1);
+check("application is marked enrolled",
+  (await as(U.registrar, "SELECT status, student_id FROM sms.admission_applications WHERE id = $1", [app])).rows[0].student_id === newStudent);
+check("enrolled application cannot be reopened",
+  !!(await fails(U.registrar, "UPDATE sms.admission_applications SET status = 'accepted' WHERE id = $1", [app])));
+
+// Performance records.
+const evalId = (await as(U.admin,
+  "INSERT INTO sms.staff_evaluations (school_id, user_id, kind, ratings, strengths) VALUES ($1, $2, 'observation', '{\"planning\": 4, \"delivery\": 5}', 'Clear') RETURNING id, overall",
+  [school, U.teacher])).rows[0];
+check("overall rating is the average", Number(evalId.overall) === 4.5, String(evalId.overall));
+await as(U.admin, "INSERT INTO sms.staff_evaluations (school_id, user_id, kind, shared, notes) VALUES ($1, $2, 'concern', false, 'private')", [school, U.teacher]);
+check("rating outside 1–5 is rejected",
+  !!(await fails(U.admin, "INSERT INTO sms.staff_evaluations (school_id, user_id, ratings) VALUES ($1, $2, '{\"planning\": 9}')", [school, U.teacher])));
+check("teacher sees only records shared with them", (await as(U.teacher, "SELECT * FROM sms.staff_evaluations")).rows.length === 1);
+check("other teacher sees none", (await as(U.teacher2, "SELECT * FROM sms.staff_evaluations")).rows.length === 0);
+check("teacher cannot change a record",
+  (await as(U.teacher, "UPDATE sms.staff_evaluations SET overall = 5 RETURNING id")).rows.length === 0);
+await as(U.teacher, "SELECT sms.acknowledge_evaluation($1, 'Thank you')", [evalId.id]);
+check("teacher acknowledges and replies",
+  (await as(U.admin, "SELECT staff_response, acknowledged_at FROM sms.staff_evaluations WHERE id = $1", [evalId.id])).rows[0].staff_response === "Thank you");
+check("other teacher cannot acknowledge it", !!(await fails(U.teacher2, "SELECT sms.acknowledge_evaluation($1)", [evalId.id])));
+
+// Payroll: progressive income tax with the default brackets.
+const brackets = (await as(U.admin, "SELECT tax_brackets FROM sms.payroll_settings WHERE school_id = $1", [school])).rows[0]?.tax_brackets;
+check("new school gets payroll settings", Array.isArray(brackets) && brackets.length === 6);
+const taxOf = async (amount) => Number((await as(U.admin, "SELECT sms.income_tax($1::jsonb, $2) AS t", [JSON.stringify(brackets), amount])).rows[0].t);
+check("tax: 1,500 → 0", (await taxOf(1500)) === 0);
+check("tax: 3,000 → 150", (await taxOf(3000)) === 150);
+check("tax: 10,000 → 1,650", (await taxOf(10000)) === 1650);
+check("tax: 20,000 → 4,950", (await taxOf(20000)) === 4950);
+
+// Payroll run for December: salary, allowances, a deduction and approved unpaid leave.
+await as(U.admin, "INSERT INTO sms.staff_pay (school_id, user_id, basic_salary, tin) VALUES ($1, $2, 10000, 'TIN-1'), ($1, $3, 8000, null)", [school, U.teacher, U.teacher2]);
+await as(U.admin, `INSERT INTO sms.pay_items (school_id, user_id, kind, name, amount, taxable) VALUES
+  ($1, $2, 'allowance', 'Transport', 600, false), ($1, $2, 'allowance', 'Position', 1000, true), ($1, $2, 'deduction', 'Loan', 500, true)`, [school, U.teacher]);
+check("teacher cannot see others' salaries", (await as(U.teacher, "SELECT * FROM sms.staff_pay")).rows.length === 1);
+const unpaid = await leaveType("Unpaid");
+const unpaidReq = (await as(U.teacher, "INSERT INTO sms.leave_requests (school_id, leave_type_id, start_date, end_date) VALUES ($1, $2, '2026-12-07', '2026-12-08') RETURNING id", [school, unpaid])).rows[0].id;
+await as(U.admin, "SELECT sms.decide_leave($1, true)", [unpaidReq]);
+check("teacher cannot run payroll", !!(await fails(U.teacher, "SELECT sms.generate_payroll($1, '2026-12-15')", [school])));
+const run = (await as(U.admin, "SELECT sms.generate_payroll($1, '2026-12-15') AS id", [school])).rows[0].id;
+const slip = (await as(U.admin, "SELECT * FROM sms.payslips WHERE run_id = $1 AND user_id = $2", [run, U.teacher])).rows[0];
+const wd = Number((await as(U.admin, "SELECT sms.school_working_days($1, '2026-12-01', '2026-12-31') AS n", [school])).rows[0].n);
+const ded = Math.round((10000 / wd) * 2 * 100) / 100;
+const earned = 10000 - ded;
+const expectTax = await taxOf(earned + 1000);
+const expectPension = Math.round(earned * 0.07 * 100) / 100;
+const near = (a, b) => Math.abs(Number(a) - b) < 0.011;
+check("unpaid leave is deducted pro rata", slip.unpaid_leave_days === 2 && near(slip.unpaid_leave_deduction, ded), `${slip.unpaid_leave_days} days, ${slip.unpaid_leave_deduction}`);
+check("taxable income excludes non-taxable allowances", near(slip.taxable_income, earned + 1000) && near(slip.income_tax, expectTax));
+check("pension is 7% of earned basic, 11% employer", near(slip.pension_employee, expectPension) && near(slip.pension_employer, Math.round(earned * 0.11 * 100) / 100));
+check("net pay adds up", near(slip.net_pay, earned + 1600 - expectTax - expectPension - 500), String(slip.net_pay));
+check("teacher cannot see a draft payslip", (await as(U.teacher, "SELECT * FROM sms.payslips")).rows.length === 0);
+await as(U.admin, "SELECT sms.finalize_payroll($1)", [run]);
+const ownSlips = (await as(U.teacher, "SELECT user_id FROM sms.payslips")).rows;
+check("after finalizing, staff see only their own payslip", ownSlips.length === 1 && ownSlips[0].user_id === U.teacher);
+check("finalized payroll cannot be regenerated", /finalized/.test(await fails(U.admin, "SELECT sms.generate_payroll($1, '2026-12-01')", [school]) ?? ""));
+check("finalized run cannot be deleted",
+  (await as(U.admin, "DELETE FROM sms.payroll_runs WHERE id = $1 RETURNING id", [run])).rows.length === 0);
+
 // Deleting accounts must never be blocked by school data.
 try {
-  await db.exec(`DELETE FROM auth.users WHERE id IN ('${U.admin}', '${U.teacher}', '${U.parent}', '${U.teacher2}');`);
+  await db.exec(`DELETE FROM auth.users WHERE id IN ('${U.admin}', '${U.teacher}', '${U.parent}', '${U.teacher2}', '${U.registrar}');`);
   const left = await db.query("SELECT created_by FROM sms.schools WHERE id = $1", [school]);
   check("deleting user accounts is never blocked", left.rows[0].created_by === null);
 } catch (e) {
