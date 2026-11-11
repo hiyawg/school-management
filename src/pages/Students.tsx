@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Link2, Plus } from "lucide-react";
+import { IdCard, Link2, Plus } from "lucide-react";
+import { printStudentCards } from "@/components/student/idCardData";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { useClasses, useCurrentYear, useStudents } from "@/hooks/useSchoolData";
@@ -22,7 +23,8 @@ const LEFT = "left";
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function Students() {
-  const { canManageStudents } = useSchool();
+  const { canManageStudents, school } = useSchool();
+  const [printing, setPrinting] = useState(false);
   const { data: year } = useCurrentYear();
   const { data: classes = [] } = useClasses(year?.id);
   const { data: students = [] } = useStudents();
@@ -95,6 +97,21 @@ export default function Students() {
             <SelectItem value={ALL}>Everyone</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" className="sm:ml-auto" disabled={printing || visible.length === 0} onClick={async () => {
+          setPrinting(true);
+          try {
+            await printStudentCards(visible, school!, year?.name ?? null, (id) => {
+              const c = classes.find((x) => x.id === classOf.get(id));
+              return c ? className(c) : null;
+            });
+          } catch (e) {
+            toast.error((e as Error).message);
+          } finally {
+            setPrinting(false);
+          }
+        }}>
+          <IdCard className="mr-2 h-4 w-4" /> {printing ? "Preparing…" : `Print ID cards (${visible.length})`}
+        </Button>
       </div>
 
       <Card>

@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { differenceInYears, endOfMonth, format } from "date-fns";
-import { ArrowLeft, CalendarCheck, MessageSquarePlus, Printer } from "lucide-react";
+import { ArrowLeft, CalendarCheck, IdCard, MessageSquarePlus, Printer } from "lucide-react";
+import { toast } from "sonner";
+import { printStudentCards } from "@/components/student/idCardData";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { useClasses, useCurrentYear } from "@/hooks/useSchoolData";
@@ -24,7 +26,7 @@ const STATUS_TONE: Record<AttendanceStatus, string> = {
 export default function StudentRecord() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { canManageFinance } = useSchool();
+  const { canManageFinance, school } = useSchool();
   const { data: year } = useCurrentYear();
   const { data: classes = [] } = useClasses(year?.id);
 
@@ -62,6 +64,10 @@ export default function StudentRecord() {
         <span className="ml-auto flex gap-1">
           <button className="flex items-center gap-1 rounded px-2 py-1 hover:bg-accent" onClick={() => navigate(`/messages?new=1&student=${student.id}`)}>
             <MessageSquarePlus className="h-4 w-4 text-primary" /> Message family
+          </button>
+          <button className="flex items-center gap-1 rounded px-2 py-1 hover:bg-accent"
+            onClick={() => printStudentCards([student], school!, year?.name ?? null, () => (cls ? className(cls) : null)).catch((e) => toast.error(e.message))}>
+            <IdCard className="h-4 w-4 text-primary" /> ID card
           </button>
           <button className="flex items-center gap-1 rounded px-2 py-1 hover:bg-accent" onClick={() => window.print()}>
             <Printer className="h-4 w-4 text-primary" /> Print
