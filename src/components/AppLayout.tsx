@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowUpRight, Banknote, BookMarked, BookOpen, CalendarCheck, CalendarDays, CalendarOff, ChevronsLeft, ChevronsRight,
+  Archive, ArrowUpRight, Banknote, BookMarked, CalendarPlus, ClipboardPlus, FilePlus2, Link2, ListChecks, Plus as PlusIcon, StickyNote, UserCog, BookOpen, CalendarCheck, CalendarDays, CalendarOff, ChevronsLeft, ChevronsRight,
   ClipboardCheck, ClipboardList, Clock, FileText, GraduationCap, HandCoins, IdCard, LayoutDashboard, LogOut, Megaphone,
   MessageSquare, MessageSquarePlus, NotebookPen, PenLine, Plus, Printer, Receipt, RefreshCw, Search, Settings, UserPlus,
   UserSquare, Users, Wallet, type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSchool } from "@/contexts/SchoolContext";
+import AddMenu from "@/components/AddMenu";
 import { useInbox, useStudents } from "@/hooks/useSchoolData";
 import { roleLabel, studentName } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ export default function AppLayout() {
       { to: "/syllabus", label: "Syllabus", icon: BookMarked, show: isAdmin || isTeacher },
       { to: "/timetable", label: "Timetable", icon: Clock, show: isStaff },
       { to: "/exams", label: "Exams", icon: FileText, show: isStaff },
+      { to: "/resources", label: "Resources", icon: Archive, show: isStaff },
     ] },
     { id: "finance", label: "Finance", icon: Banknote, pages: [
       { to: "/finance?tab=invoices", label: "Invoices", icon: Receipt, show: canManageFinance },
@@ -158,6 +160,7 @@ export default function AppLayout() {
           <span className="hidden truncate px-2 font-medium opacity-90 sm:inline">{school?.name}</span>
         )}
         <div className="ml-auto flex items-center gap-1">
+          <NewMenu />
           {isStaff && (
             <Button size="sm" className="h-7 bg-[hsl(var(--bar-from))] text-white hover:bg-[hsl(var(--bar-to))]" onClick={() => setFinding(true)}>
               <Search className="mr-1.5 h-3.5 w-3.5" /> Find student
@@ -270,5 +273,49 @@ function FindStudent({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// "New ▾": everything this person can create, grouped, each with its own coloured icon.
+function NewMenu() {
+  const { isAdmin, isTeacher, isStaff, canManageStudents, canManageFinance } = useSchool();
+  const navigate = useNavigate();
+  const go = (to: string) => () => navigate(to);
+  const teaches = isAdmin || isTeacher;
+  return (
+    <AddMenu label="New" icon={PlusIcon} align="end" className="h-7 bg-white/15 hover:bg-white/25" groups={[
+      { label: "Students", items: [
+        { label: "New student", icon: UserPlus, color: "text-emerald-600", onSelect: go("/students?register=1"), show: canManageStudents },
+        { label: "New application", icon: ClipboardList, color: "text-teal-600", onSelect: go("/admissions?new=1"), show: canManageStudents },
+      ] },
+      { label: "Teaching", items: [
+        { label: "Take attendance", icon: CalendarCheck, color: "text-green-700", onSelect: go("/attendance"), show: teaches },
+        { label: "Add assessment", icon: ListChecks, color: "text-violet-600", onSelect: go("/gradebook"), show: teaches },
+        { label: "Set homework", icon: NotebookPen, color: "text-teal-600", onSelect: go("/homework"), show: teaches },
+        { label: "Plan a lesson", icon: BookMarked, color: "text-indigo-600", onSelect: go("/syllabus"), show: teaches },
+        { label: "Schedule an exam", icon: FileText, color: "text-amber-600", onSelect: go("/exams"), show: isAdmin },
+      ] },
+      { label: "Resources", items: [
+        { label: "Add file", icon: FilePlus2, color: "text-orange-600", onSelect: go("/resources?add=file"), show: isStaff },
+        { label: "Add link", icon: Link2, color: "text-cyan-700", onSelect: go("/resources?add=link"), show: isStaff },
+        { label: "Add page", icon: StickyNote, color: "text-blue-800 dark:text-blue-300", onSelect: go("/resources?add=page"), show: isStaff },
+      ] },
+      { label: "Communication", items: [
+        { label: "New message", icon: MessageSquarePlus, color: "text-rose-600", onSelect: go("/messages?new=1") },
+        { label: "New announcement", icon: Megaphone, color: "text-amber-600", onSelect: go("/announcements"), show: teaches },
+        { label: "Add event", icon: CalendarPlus, color: "text-sky-600", onSelect: go("/calendar"), show: isAdmin },
+      ] },
+      { label: "Finance", items: [
+        { label: "Bill students", icon: Receipt, color: "text-blue-700", onSelect: go("/finance?tab=invoices"), show: canManageFinance },
+        { label: "Take payment", icon: HandCoins, color: "text-emerald-700", onSelect: go("/finance?tab=payments"), show: canManageFinance },
+        { label: "Add scholarship", icon: GraduationCap, color: "text-purple-600", onSelect: go("/finance?tab=discounts"), show: canManageFinance },
+        { label: "Record expense", icon: Wallet, color: "text-red-600", onSelect: go("/finance?tab=expenses"), show: canManageFinance },
+      ] },
+      { label: "Staff", items: [
+        { label: "Request leave", icon: CalendarOff, color: "text-orange-600", onSelect: go("/leave"), show: isStaff },
+        { label: "Add person", icon: UserCog, color: "text-slate-600 dark:text-slate-300", onSelect: go("/staff"), show: isAdmin },
+        { label: "Performance record", icon: ClipboardPlus, color: "text-pink-600", onSelect: go("/staff"), show: isAdmin },
+      ] },
+    ]} />
   );
 }

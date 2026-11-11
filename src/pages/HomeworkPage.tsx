@@ -1,13 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Paperclip, Trash2 } from "lucide-react";
+import ResourcePicker from "@/components/resources/ResourcePicker";
+import ResourceChips from "@/components/resources/ResourceChips";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { useClasses, useClassRoster, useCurrentYear, useMyAssignments } from "@/hooks/useSchoolData";
 import {
   className, homeworkStateLabel, studentName,
-  type ClassSubject, type Homework, type HomeworkState, type HomeworkStatus, type SchoolClass,
+  type ClassSubject, type Homework, type HomeworkState, type HomeworkStatus, type Resource, type SchoolClass,
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,24 +64,34 @@ function SubjectHomework({ cs, cls }: { cs: ClassSubject; cls: SchoolClass }) {
   const qc = useQueryClient();
   const [f, setF] = useState({ title: "", instructions: "", due: "" });
   const [marking, setMarking] = useState<Homework | null>(null);
+  const [attach, setAttach] = useState<string[]>([]);
+  const [picking, setPicking] = useState(false);
   const { data: homework = [] } = useQuery({
     queryKey: ["homework", cs.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("homework").select("*").eq("class_subject_id", cs.id).order("assigned_on", { ascending: false });
+      const { data, error } = await supabase.from("homework").select("*, attachments:homework_resources(resource:resources(*))")
+        .eq("class_subject_id", cs.id).order("assigned_on", { ascending: false });
       if (error) throw error;
-      return data as Homework[];
+      return (data as unknown as (Homework & { attachments: { resource: Resource | null }[] })[])
+        .map((h) => ({ ...h, resources: h.attachments.map((a) => a.resource).filter((r): r is Resource => !!r) }));
     },
   });
   const refresh = () => qc.invalidateQueries({ queryKey: ["homework", cs.id] });
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from("homework").insert({
+    const { data: created, error } = await supabase.from("homework").insert({
       school_id: school!.id, class_subject_id: cs.id, title: f.title.trim(), instructions: f.instructions.trim() || null, due_on: f.due || null,
-    });
+    }).select().single();
     if (error) return toast.error(error.code === "23514" ? "The due date can't be before today" : error.message);
+    if (attach.length) {
+      const { error: attachError } = await supabase.from("homework_resources")
+        .insert(attach.map((resource_id) => ({ homework_id: created.id, resource_id, school_id: school!.id })));
+      if (attachError) toast.warning(`Homework set, but the attachments were not: ${attachError.message}`);
+    }
     toast.success(`Set for ${className(cls)}. Families can see it now.`);
     setF({ title: "", instructions: "", due: "" });
+    setAttach([]);
     refresh();
   };
 
@@ -104,8 +116,14 @@ function SubjectHomework({ cs, cls }: { cs: ClassSubject; cls: SchoolClass }) {
               <textarea className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={f.instructions} onChange={(e) => setF({ ...f, instructions: e.target.value })} />
             </div>
-            <div><Button type="submit">Set homework</Button></div>
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+              <Button type="submit">Set homework</Button>
+              <Button type="button" variant="outline" onClick={() => setPicking(true)}>
+                <Paperclip className="mr-2 h-4 w-4" /> {attach.length ? `${attach.length} attached` : "Attach resources"}
+              </Button>
+            </div>
           </form>
+          <ResourcePicker open={picking} onOpenChange={setPicking} selected={attach} onChange={setAttach} />
         </CardContent>
       </Card>
 
@@ -117,6 +135,7 @@ function SubjectHomework({ cs, cls }: { cs: ClassSubject; cls: SchoolClass }) {
               <div>
                 <div className="font-medium">{h.title}</div>
                 <div className="text-xs text-muted-foreground">Set {h.assigned_on}{h.due_on && ` · due ${h.due_on}`}</div>
+                {h.resources.length > 0 && <ResourceChips resources={h.resources} />}
               </div>
               <div className="flex gap-1">
                 <Button size="sm" variant="outline" onClick={() => setMarking(h)}>Mark</Button>
@@ -187,3 +206,4 @@ function MarkHomework({ homework, cls }: { homework: Homework; cls: SchoolClass 
     </Card>
   );
 }
+

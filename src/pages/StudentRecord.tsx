@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { differenceInYears, endOfMonth, format } from "date-fns";
-import { ArrowLeft, CalendarCheck, IdCard, MessageSquarePlus, Printer } from "lucide-react";
+import { ArrowLeft, CalendarCheck, FileUp, HandCoins, IdCard, ListChecks, MessageSquarePlus, Printer, UserPlus } from "lucide-react";
+import AddMenu from "@/components/AddMenu";
 import { toast } from "sonner";
 import { printStudentCards } from "@/components/student/idCardData";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,6 +54,13 @@ export default function StudentRecord() {
   const guardian = data.guardians[0];
   const flagged = !!student.medical_notes || student.status !== "active";
 
+  // Actions that live in a panel scroll to it and flash it.
+  const jump = (id: string) => {
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    el?.animate([{ boxShadow: "0 0 0 3px hsl(var(--ring))" }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1200 });
+  };
+
   const item = (label: string, value: React.ReactNode) => (
     <div className="flex gap-1.5"><span className="italic text-muted-foreground">{label}:</span><span className="font-semibold">{value || "—"}</span></div>
   );
@@ -61,17 +69,19 @@ export default function StudentRecord() {
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-sm print:hidden">
         <button className="flex items-center gap-1 text-primary hover:underline" onClick={() => navigate("/students")}><ArrowLeft className="h-4 w-4" /> Students</button>
-        <span className="ml-auto flex gap-1">
-          <button className="flex items-center gap-1 rounded px-2 py-1 hover:bg-accent" onClick={() => navigate(`/messages?new=1&student=${student.id}`)}>
-            <MessageSquarePlus className="h-4 w-4 text-primary" /> Message family
-          </button>
-          <button className="flex items-center gap-1 rounded px-2 py-1 hover:bg-accent"
-            onClick={() => printStudentCards([student], school!, year?.name ?? null, () => (cls ? className(cls) : null)).catch((e) => toast.error(e.message))}>
-            <IdCard className="h-4 w-4 text-primary" /> ID card
-          </button>
-          <button className="flex items-center gap-1 rounded px-2 py-1 hover:bg-accent" onClick={() => window.print()}>
-            <Printer className="h-4 w-4 text-primary" /> Print
-          </button>
+        <span className="ml-auto flex items-center gap-1">
+          <AddMenu label="Actions" icon={ListChecks} align="end" groups={[
+            { items: [
+              { label: "Add guardian", icon: UserPlus, color: "text-emerald-600", onSelect: () => jump("panel-guardians") },
+              { label: "Upload document", icon: FileUp, color: "text-orange-600", onSelect: () => jump("panel-documents") },
+              { label: "Record payment", icon: HandCoins, color: "text-emerald-700", onSelect: () => jump("panel-fees"), show: canManageFinance },
+            ] },
+            { items: [
+              { label: "Message family", icon: MessageSquarePlus, color: "text-rose-600", onSelect: () => navigate(`/messages?new=1&student=${student.id}`) },
+              { label: "Print ID card", icon: IdCard, color: "text-blue-700", onSelect: () => printStudentCards([student], school!, year?.name ?? null, () => (cls ? className(cls) : null)).catch((e) => toast.error(e.message)) },
+              { label: "Print record", icon: Printer, color: "text-slate-600 dark:text-slate-300", onSelect: () => window.print() },
+            ] },
+          ]} />
         </span>
       </div>
 
@@ -100,11 +110,11 @@ export default function StudentRecord() {
 
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title="Profile"><ProfileTab student={student} currentClassId={cls?.id} onClose={() => undefined} /></Panel>
-        <Panel title="Guardians"><GuardiansTab student={student} /></Panel>
+        <Panel title="Guardians" id="panel-guardians"><GuardiansTab student={student} /></Panel>
         <AttendancePanel studentId={student.id} />
-        <Panel title="Documents"><StudentDocuments student={student} /></Panel>
+        <Panel title="Documents" id="panel-documents"><StudentDocuments student={student} /></Panel>
         <Panel title="Results by year" className="lg:col-span-2"><StudentHistory studentId={student.id} /></Panel>
-        {canManageFinance && <Panel title="Fees" className="lg:col-span-2"><StudentFees student={student} /></Panel>}
+        {canManageFinance && <Panel title="Fees" id="panel-fees" className="lg:col-span-2"><StudentFees student={student} /></Panel>}
       </div>
     </div>
   );

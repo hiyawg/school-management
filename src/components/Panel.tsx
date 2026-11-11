@@ -6,11 +6,11 @@ import { cn } from "@/lib/utils";
 export type PanelAction = { label: string; icon: LucideIcon; onClick: () => void; tone?: "add" | "remove" };
 
 // A titled panel with a small icon toolbar, as in desktop records software.
-export default function Panel({ title, actions = [], children, className, contentClassName }: {
-  title: string; actions?: PanelAction[]; children: ReactNode; className?: string; contentClassName?: string;
+export default function Panel({ title, actions = [], children, className, contentClassName, id }: {
+  title: string; actions?: PanelAction[]; children: ReactNode; className?: string; contentClassName?: string; id?: string;
 }) {
   return (
-    <Card className={className}>
+    <Card id={id} className={cn("scroll-mt-4", className)}>
       <CardHeader className="flex-row items-center justify-between space-y-0 py-1.5">
         <CardTitle className="text-base font-medium">{title}</CardTitle>
         {actions.length > 0 && (

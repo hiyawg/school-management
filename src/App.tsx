@@ -29,6 +29,7 @@ import Announcements from "@/pages/Announcements";
 import Messages from "@/pages/Messages";
 import HomeworkPage from "@/pages/HomeworkPage";
 import StudentRecord from "@/pages/StudentRecord";
+import Resources from "@/pages/Resources";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
 
@@ -68,6 +69,7 @@ function Gate() {
           {isStaff && <Route path="timetable" element={<Timetable />} />}
           {isStaff && <Route path="students" element={<Students />} />}
           {isStaff && <Route path="students/:id" element={<StudentRecord />} />}
+          {isStaff && <Route path="resources" element={<Resources />} />}
           {(isAdmin || isTeacher) && <Route path="attendance" element={<Attendance />} />}
           {(isAdmin || isTeacher) && <Route path="gradebook" element={<Gradebook />} />}
           {canManageStudents && <Route path="admissions" element={<Admissions />} />}

@@ -364,3 +364,12 @@ export type VsClass = {
   class_id: string; class_subject_id: string; subject_name: string; term_id: string | null;
   student_total: number | null; class_average: number | null; students: number;
 };
+
+export type ResourceKind = "file" | "link" | "page";
+export const resourceKindLabel: Record<ResourceKind, string> = { file: "File", link: "Link", page: "Page" };
+export type ResourceFolder = { id: string; owner_id: string; parent_id: string | null; name: string; shared: boolean };
+export type Resource = {
+  id: string; owner_id: string; folder_id: string | null; kind: ResourceKind; title: string; description: string | null;
+  url: string | null; body: string | null; storage_path: string | null; file_name: string | null; size_bytes: number | null;
+  subject_id: string | null; grade_level: number | null; topic_id: string | null; shared: boolean; updated_at: string;
+};

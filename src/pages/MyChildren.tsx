@@ -6,12 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import {
   birr, className, homeworkStateLabel, studentName,
-  type Announcement, type AttendanceStatus, type Homework, type HomeworkStatus, type SchoolClass, type Student, type VsClass,
+  type Announcement, type AttendanceStatus, type Homework, type HomeworkStatus, type Resource, type SchoolClass, type Student, type VsClass,
 } from "@/lib/types";
 import StudentHistory from "@/components/StudentHistory";
 import { StudentDocuments, StudentPhoto } from "@/components/StudentFiles";
 import StudentFees from "@/components/finance/StudentFees";
 import { useStudentFinance } from "@/components/finance/financeData";
+import ResourceChips from "@/components/resources/ResourceChips";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,7 +129,8 @@ function useChildHomework(child: Student, cls: SchoolClass | null) {
       if (error) throw error;
       const ids = (subjects ?? []).map((s) => s.id);
       const [hw, st] = await Promise.all([
-        ids.length ? supabase.from("homework").select("*").in("class_subject_id", ids).order("due_on", { ascending: false, nullsFirst: false }).limit(100)
+        ids.length ? supabase.from("homework").select("*, attachments:homework_resources(resource:resources(*))").in("class_subject_id", ids)
+          .order("due_on", { ascending: false, nullsFirst: false }).limit(100)
           : Promise.resolve({ data: [], error: null }),
         supabase.from("homework_status").select("*").eq("student_id", child.id),
       ]);
@@ -136,7 +138,10 @@ function useChildHomework(child: Student, cls: SchoolClass | null) {
       if (err) throw err;
       const subjectName = new Map((subjects ?? []).map((s) => [s.id as string, s.subject_name as string]));
       const status = new Map(((st.data ?? []) as HomeworkStatus[]).map((s) => [s.homework_id, s]));
-      return ((hw.data ?? []) as Homework[]).map((h) => ({ ...h, subject: subjectName.get(h.class_subject_id) ?? "", status: status.get(h.id) }));
+      return ((hw.data ?? []) as unknown as (Homework & { attachments: { resource: Resource | null }[] })[]).map((h) => ({
+        ...h, subject: subjectName.get(h.class_subject_id) ?? "", status: status.get(h.id),
+        resources: h.attachments.map((a) => a.resource).filter((r): r is Resource => !!r),
+      }));
     },
   });
 }
@@ -338,6 +343,7 @@ function HomeworkTab({ child, cls }: { child: Student; cls: SchoolClass | null }
       </div>
       {h.instructions && <div className="whitespace-pre-line text-muted-foreground">{h.instructions}</div>}
       {h.status?.note && <div className="text-xs">Teacher's note: {h.status.note}</div>}
+      <ResourceChips resources={h.resources} />
     </div>
   );
   return (

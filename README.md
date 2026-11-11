@@ -46,6 +46,9 @@ A standalone school management app for administrators, teachers and parents. It 
 - Gradebook: weighted assessments per subject and term
 - Family portal (guardians, and students with their own login): overview, attendance by month, results next
   to the class average, homework with the teacher's marks, fees and receipts, documents, and the child's teachers
+- Resource library: folders of files, links and pages per staff member, private unless a folder or item is
+  shared with all staff; tagged by subject and grade; attachable to homework, which is how families see them
+- "New ▾" menu with everything the signed-in person can create; "Actions ▾" on the student record
 - Homework: teachers set it for their subjects and mark each student done / late / missing / excused
 - Announcements: whole school, staff only or families (administrators); a class's families (its teachers); pinning
 - Messages between families and the child's teachers or the office, with unread counts; administrators can read
