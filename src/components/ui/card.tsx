@@ -25,7 +25,7 @@ const CardHeader = React.forwardRef<
     ref={ref}
     // A blue title bar, as in desktop records software; content below gets its own padding.
     className={cn(
-      "flex flex-col space-y-0.5 bg-gradient-to-b from-[hsl(var(--bar-from))] to-[hsl(var(--bar-to))] px-4 py-2 text-primary-foreground [&_.text-muted-foreground]:text-primary-foreground/80",
+      "flex flex-col space-y-0.5 bg-gradient-to-b from-[hsl(var(--bar-from))] to-[hsl(var(--bar-to))] px-4 py-2 text-primary-foreground [&_.text-muted-foreground]:text-primary-foreground/80 [&_.text-primary]:text-primary-foreground [&_[data-badge]]:border-white/60 [&_[data-badge]]:bg-white/15 [&_[data-badge]]:text-white",
       className
     )}
     {...props}

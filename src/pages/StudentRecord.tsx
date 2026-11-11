@@ -75,7 +75,7 @@ export default function StudentRecord() {
         <div>
           <div className="text-2xl font-medium">{student.first_name} {student.father_name} {student.grandfather_name}</div>
           <div className="text-sm">
-            {age !== null && <b>{age} years</b>}{student.gender && <> · {student.gender === "M" ? "Male" : "Female"}</>}
+            {age !== null && age > 0 && <b>{age} years</b>}{student.gender && <> · {student.gender === "M" ? "Male" : "Female"}</>}
             {student.date_of_birth && <> · <i className="text-muted-foreground">DOB:</i> <b>{format(new Date(`${student.date_of_birth}T00:00:00`), "dd-MMM-yyyy")}</b></>}
           </div>
           <div className="text-sm">{guardian && <><i className="text-muted-foreground">Guardian:</i> <b>{guardian.full_name}{guardian.phone && ` · ${guardian.phone}`}</b></>}</div>

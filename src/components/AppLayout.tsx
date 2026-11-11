@@ -149,12 +149,13 @@ export default function AppLayout() {
       {/* Title row: tab and school on the left; find, messages and the signed-in person on the right. */}
       <header className="flex items-center gap-2 bg-[hsl(var(--nav))] px-3 py-1.5 text-sm text-white print:hidden">
         <span className="rounded-t bg-[hsl(var(--ribbon))] px-3 py-1 font-medium text-[hsl(var(--foreground))]">Home</span>
-        <span className="hidden truncate px-2 font-medium opacity-90 sm:inline">{school?.name}</span>
-        {memberships.length > 1 && (
+        {memberships.length > 1 ? (
           <Select value={school?.id} onValueChange={selectSchool}>
             <SelectTrigger className="h-7 w-auto border-white/30 bg-transparent text-white" aria-label="Switch school"><SelectValue /></SelectTrigger>
             <SelectContent>{memberships.map((m) => <SelectItem key={m.school.id} value={m.school.id}>{m.school.name}</SelectItem>)}</SelectContent>
           </Select>
+        ) : (
+          <span className="hidden truncate px-2 font-medium opacity-90 sm:inline">{school?.name}</span>
         )}
         <div className="ml-auto flex items-center gap-1">
           {isStaff && (
