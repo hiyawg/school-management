@@ -27,6 +27,7 @@ const U = {
   teacher2: "00000000-0000-0000-0000-00000000000e",
   registrar: "00000000-0000-0000-0000-00000000000f",
   accountant: "00000000-0000-0000-0000-000000000010",
+  pupil: "00000000-0000-0000-0000-000000000011",
 };
 
 let failures = 0;
@@ -53,7 +54,7 @@ console.log(`PASS  ${migrations.length} migrations applied`);
 
 await db.exec(`INSERT INTO auth.users VALUES
   ('${U.admin}', 'admin@school.et'), ('${U.teacher}', 'teacher@school.et'),
-  ('${U.parent}', 'parent@mail.et'), ('${U.stranger}', 'other@mail.et'), ('${U.teacher2}', 'teacher2@school.et'), ('${U.registrar}', 'registrar@school.et'), ('${U.accountant}', 'accountant@school.et');`);
+  ('${U.parent}', 'parent@mail.et'), ('${U.stranger}', 'other@mail.et'), ('${U.teacher2}', 'teacher2@school.et'), ('${U.registrar}', 'registrar@school.et'), ('${U.accountant}', 'accountant@school.et'), ('${U.pupil}', 'abel@mail.et');`);
 
 const school = (await as(U.admin, "INSERT INTO sms.schools (name) VALUES ('Test School') RETURNING id")).rows[0].id;
 const adminRole = await as(U.admin, "SELECT role FROM sms.school_members WHERE school_id = $1", [school]);
@@ -483,6 +484,71 @@ check("accountant cannot read individual payslips", (await as(U.accountant, "SEL
 check("teacher cannot see payroll totals", !!(await fails(U.teacher, "SELECT * FROM sms.payroll_totals($1, '2026-01-01', '2027-12-31')", [school])));
 check("accountant cannot run payroll", !!(await fails(U.accountant, "SELECT sms.generate_payroll($1, '2027-01-01')", [school])));
 
+// Portal: student accounts.
+check("unknown student email is refused", /No account/.test(await fails(U.registrar, "SELECT sms.link_student_account($1, 'nobody@x.et')", [kid]) ?? ""));
+await as(U.registrar, "SELECT sms.link_student_account($1, 'abel@mail.et')", [kid]);
+check("student sees only their own record", (await as(U.pupil, "SELECT id FROM sms.students")).rows.map((r) => r.id).join() === kid);
+check("student sees their own scores", (await as(U.pupil, "SELECT * FROM sms.scores")).rows.every((r) => r.student_id === kid));
+check("an account links to one student only", /already linked/.test(await fails(U.registrar, "SELECT sms.link_student_account($1, 'abel@mail.et')", [otherKid]) ?? ""));
+check("teacher cannot link student accounts", !!(await fails(U.teacher, "SELECT sms.link_student_account($1, 'abel@mail.et')", [kid])));
+
+// Homework.
+const hw = (await as(U.teacher, "INSERT INTO sms.homework (school_id, class_subject_id, title, due_on) VALUES ($1, $2, 'Exercise 3.1', current_date + 3) RETURNING id", [school, subj])).rows[0].id;
+check("other teacher cannot set homework in this subject",
+  !!(await fails(U.teacher2, "INSERT INTO sms.homework (school_id, class_subject_id, title) VALUES ($1, $2, 'x')", [school, subj])));
+check("family of the class sees the homework", (await as(U.parent, "SELECT id FROM sms.homework")).rows.some((r) => r.id === hw));
+check("student sees the homework", (await as(U.pupil, "SELECT id FROM sms.homework")).rows.some((r) => r.id === hw));
+check("stranger sees no homework", (await as(U.stranger, "SELECT * FROM sms.homework")).rows.length === 0);
+await as(U.teacher, "INSERT INTO sms.homework_status (homework_id, student_id, school_id, status) VALUES ($1, $2, $3, 'done'), ($1, $4, $3, 'missing')", [hw, kid, school, otherKid]);
+check("parent sees only their child's homework status", (await as(U.parent, "SELECT student_id FROM sms.homework_status")).rows.every((r) => r.student_id !== otherKid));
+check("parent cannot mark homework",
+  (await as(U.parent, "UPDATE sms.homework_status SET status = 'excused' WHERE student_id = $1 RETURNING student_id", [kid])).rows.length === 0);
+
+// Announcements.
+const post = (user, title, audience, classId = null) => as(user,
+  "INSERT INTO sms.announcements (school_id, title, body, audience, class_id) VALUES ($1, $2, 'Body', $3, $4) RETURNING id", [school, title, audience, classId]);
+await post(U.admin, "Welcome back", "everyone");
+await post(U.admin, "Staff meeting", "staff");
+await post(U.admin, "Parents evening", "families");
+await post(U.teacher, "7A trip", "families", cls);
+check("teacher cannot post school-wide", !!(await fails(U.teacher, "INSERT INTO sms.announcements (school_id, title, body) VALUES ($1, 'x', 'y')", [school])));
+check("teacher cannot post to a class they don't teach",
+  !!(await fails(U.teacher, "INSERT INTO sms.announcements (school_id, title, body, audience, class_id) VALUES ($1, 'x', 'y', 'families', $2)", [school, c8a])));
+const titles = async (user) => (await as(user, "SELECT title FROM sms.announcements ORDER BY title")).rows.map((r) => r.title).join("|");
+check("parent sees everyone, family and class posts, not staff ones", (await titles(U.parent)) === "7A trip|Parents evening|Welcome back", await titles(U.parent));
+check("teacher sees every post", (await titles(U.teacher2)).split("|").length === 4);
+check("stranger sees no posts", (await titles(U.stranger)) === "");
+
+// Messaging.
+check("family can't write to staff unrelated to the child",
+  !!(await fails(U.parent, "INSERT INTO sms.conversations (school_id, student_id, staff_user_id, subject) VALUES ($1, $2, $3, 'x')", [school, kid, U.registrar])));
+const convo = (await as(U.parent, "INSERT INTO sms.conversations (school_id, student_id, staff_user_id, subject) VALUES ($1, $2, $3, 'Homework question') RETURNING id", [school, kid, U.teacher])).rows[0].id;
+await as(U.parent, "INSERT INTO sms.messages (school_id, conversation_id, body) VALUES ($1, $2, 'Is exercise 3.1 due Friday?')", [school, convo]);
+await as(U.teacher, "INSERT INTO sms.messages (school_id, conversation_id, body) VALUES ($1, $2, 'Yes, Friday.')", [school, convo]);
+const inbox = async (user) => (await as(user, "SELECT * FROM sms.my_inbox($1)", [school])).rows;
+const parentInbox = await inbox(U.parent);
+check("inbox shows the teacher's name and one unread reply", parentInbox.length === 1 && parentInbox[0].staff_name === "Ato Teacher" && parentInbox[0].unread === 1, JSON.stringify(parentInbox[0]));
+await as(U.parent, "INSERT INTO sms.conversation_reads (conversation_id, user_id) VALUES ($1, $2) ON CONFLICT (conversation_id, user_id) DO UPDATE SET last_read_at = now()", [convo, U.parent]);
+check("reading clears the unread count", (await inbox(U.parent))[0].unread === 0);
+check("the student is in their own family's conversation", (await as(U.pupil, "SELECT * FROM sms.messages WHERE conversation_id = $1", [convo])).rows.length === 2);
+check("stranger cannot read the conversation", (await as(U.stranger, "SELECT * FROM sms.messages")).rows.length === 0);
+check("other teacher cannot read it", (await as(U.teacher2, "SELECT * FROM sms.messages WHERE conversation_id = $1", [convo])).rows.length === 0);
+check("administrator can read it for safeguarding", (await as(U.admin, "SELECT * FROM sms.messages WHERE conversation_id = $1", [convo])).rows.length === 2);
+check("administrator cannot post in someone else's conversation",
+  !!(await fails(U.admin, "INSERT INTO sms.messages (school_id, conversation_id, body) VALUES ($1, $2, 'x')", [school, convo])));
+check("messages cannot be edited", !!(await fails(U.parent, "UPDATE sms.messages SET body = 'changed' WHERE conversation_id = $1", [convo])));
+const people = (await as(U.parent, "SELECT name FROM sms.conversation_people($1) ORDER BY name", [convo])).rows.map((r) => r.name).join("|");
+check("message authors have names", people === "Ato Teacher|W/ro Parent", people);
+const contacts = (await as(U.parent, "SELECT * FROM sms.student_contacts($1)", [kid])).rows;
+check("contacts list the child's teachers and administration",
+  contacts.some((c) => c.user_id === U.teacher) && contacts.some((c) => c.role.includes("School administration")) && !contacts.some((c) => c.user_id === U.registrar));
+check("stranger gets no contacts", (await as(U.stranger, "SELECT * FROM sms.student_contacts($1)", [kid])).rows.length === 0);
+
+// Results next to the class average, without other children's marks.
+const vs = (await as(U.parent, "SELECT * FROM sms.student_vs_class($1)", [kid])).rows;
+check("parent sees their child's totals with the class average", vs.length > 0 && vs.every((r) => r.class_average !== null));
+check("stranger gets no class comparison", (await as(U.stranger, "SELECT * FROM sms.student_vs_class($1)", [kid])).rows.length === 0);
+
 const paidInv = (await bal(newStudent, "2026-11"));
 await pay(U.accountant, paidInv.invoice_id, newStudent, 100);
 check("deleting a student with invoices and payments works",
@@ -490,7 +556,7 @@ check("deleting a student with invoices and payments works",
 
 // Deleting accounts must never be blocked by school data.
 try {
-  await db.exec(`DELETE FROM auth.users WHERE id IN ('${U.admin}', '${U.teacher}', '${U.parent}', '${U.teacher2}', '${U.registrar}', '${U.accountant}');`);
+  await db.exec(`DELETE FROM auth.users WHERE id IN ('${U.admin}', '${U.teacher}', '${U.parent}', '${U.teacher2}', '${U.registrar}', '${U.accountant}', '${U.pupil}');`);
   const left = await db.query("SELECT created_by FROM sms.schools WHERE id = $1", [school]);
   check("deleting user accounts is never blocked", left.rows[0].created_by === null);
 } catch (e) {
