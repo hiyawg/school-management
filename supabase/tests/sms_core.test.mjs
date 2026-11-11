@@ -549,6 +549,36 @@ const vs = (await as(U.parent, "SELECT * FROM sms.student_vs_class($1)", [kid]))
 check("parent sees their child's totals with the class average", vs.length > 0 && vs.every((r) => r.class_average !== null));
 check("stranger gets no class comparison", (await as(U.stranger, "SELECT * FROM sms.student_vs_class($1)", [kid])).rows.length === 0);
 
+// Resource library.
+const folder = (await as(U.teacher, "INSERT INTO sms.resource_folders (school_id, name) VALUES ($1, 'Grade 7 maths') RETURNING id", [school])).rows[0].id;
+const sheet = (await as(U.teacher, `INSERT INTO sms.resources (school_id, folder_id, kind, title, storage_path)
+  VALUES ($1, $2, 'file', 'Integers worksheet', $3) RETURNING id, storage_path`, [school, folder, `${school}/r1/integers.pdf`])).rows[0];
+const video = (await as(U.teacher, "INSERT INTO sms.resources (school_id, kind, title, url) VALUES ($1, 'link', 'Integers video', 'https://example.com/v') RETURNING id", [school])).rows[0].id;
+check("link must be a web address",
+  !!(await fails(U.teacher, "INSERT INTO sms.resources (school_id, kind, title, url) VALUES ($1, 'link', 'x', 'javascript:alert(1)')", [school])));
+check("parent cannot create resources", !!(await fails(U.parent, "INSERT INTO sms.resources (school_id, kind, title, body) VALUES ($1, 'page', 'x', 'y')", [school])));
+check("resources are private at first", (await as(U.teacher2, "SELECT * FROM sms.resources")).rows.length === 0);
+check("nobody can file into someone else's folder",
+  !!(await fails(U.teacher2, "INSERT INTO sms.resources (school_id, folder_id, kind, title, body) VALUES ($1, $2, 'page', 'x', 'y')", [school, folder])));
+await as(U.teacher, "UPDATE sms.resource_folders SET shared = true WHERE id = $1", [folder]);
+check("sharing a folder shows its items to staff", (await as(U.teacher2, "SELECT id FROM sms.resources")).rows.map((r) => r.id).join() === sheet.id);
+check("colleagues cannot change shared items",
+  (await as(U.teacher2, "UPDATE sms.resources SET title = 'x' WHERE id = $1 RETURNING id", [sheet.id])).rows.length === 0);
+check("families don't see the library", (await as(U.parent, "SELECT * FROM sms.resources")).rows.length === 0);
+check("only the owner uploads a resource file",
+  (await fails(U.teacher, "INSERT INTO storage.objects (bucket_id, name) VALUES ('resources', $1)", [sheet.storage_path])) === null
+  && !!(await fails(U.teacher2, "INSERT INTO storage.objects (bucket_id, name) VALUES ('resources', $1)", [sheet.storage_path])));
+check("files can't be uploaded for resources that don't exist",
+  !!(await fails(U.teacher, "INSERT INTO storage.objects (bucket_id, name) VALUES ('resources', $1)", [`${school}/nope/x.pdf`])));
+check("parent cannot open the file yet", (await as(U.parent, "SELECT * FROM storage.objects WHERE bucket_id = 'resources'")).rows.length === 0);
+await as(U.teacher, "INSERT INTO sms.homework_resources (homework_id, resource_id, school_id) VALUES ($1, $2, $3), ($1, $4, $3)", [hw, sheet.id, school, video]);
+check("attached to homework, families of the class can open it",
+  (await as(U.parent, "SELECT id FROM sms.resources ORDER BY title")).rows.length === 2
+  && (await as(U.parent, "SELECT * FROM storage.objects WHERE bucket_id = 'resources'")).rows.length === 1);
+check("stranger still sees nothing", (await as(U.stranger, "SELECT * FROM sms.resources")).rows.length === 0);
+check("other teacher cannot attach to this homework",
+  !!(await fails(U.teacher2, "INSERT INTO sms.homework_resources (homework_id, resource_id, school_id) VALUES ($1, $2, $3)", [hw, sheet.id, school])));
+
 const paidInv = (await bal(newStudent, "2026-11"));
 await pay(U.accountant, paidInv.invoice_id, newStudent, 100);
 check("deleting a student with invoices and payments works",
