@@ -4,6 +4,7 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { className, studentName, type Student } from "@/lib/types";
 import StudentHistory from "@/components/StudentHistory";
 import { StudentDocuments, StudentPhoto } from "@/components/StudentFiles";
+import StudentFees from "@/components/finance/StudentFees";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -139,6 +140,11 @@ function ChildCard({ child }: { child: Student }) {
         <details className="md:col-span-3">
           <summary className="cursor-pointer text-sm font-medium">Full history by year</summary>
           <div className="mt-3"><StudentHistory studentId={child.id} /></div>
+        </details>
+
+        <details className="md:col-span-3">
+          <summary className="cursor-pointer text-sm font-medium">Fees and payments</summary>
+          <div className="mt-3"><StudentFees student={child} /></div>
         </details>
 
         <details className="md:col-span-3">

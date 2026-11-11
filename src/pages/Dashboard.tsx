@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
-  const { school, isAdmin, isTeacher, canManageStudents, roles } = useSchool();
+  const { school, isAdmin, isTeacher, canManageStudents, canManageFinance, roles } = useSchool();
   const { data: year } = useCurrentYear();
   const { data: classes = [] } = useClasses(year?.id);
   const { data: students = [] } = useStudents();
@@ -114,6 +114,7 @@ export default function Dashboard() {
           { to: "/attendance", title: "Take attendance", body: "Mark today's register for a class.", show: isAdmin || isTeacher },
           { to: "/gradebook", title: "Gradebook", body: "Record scores and assign learning-app skills.", show: isAdmin || isTeacher },
           { to: "/admissions", title: "Admissions", body: "Applications, interviews and enrolling new students.", show: canManageStudents },
+          { to: "/finance", title: "Finance", body: "Invoices, payments, receipts and reports.", show: canManageFinance },
           { to: "/students", title: "Students", body: "Register students, guardians and enrollment.", show: true },
         ].filter((c) => c.show).map((c) => (
           <Link key={c.to} to={c.to}>

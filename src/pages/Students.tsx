@@ -11,6 +11,7 @@ import {
 } from "@/lib/types";
 import StudentHistory from "@/components/StudentHistory";
 import { StudentDocuments, StudentPhoto } from "@/components/StudentFiles";
+import StudentFees from "@/components/finance/StudentFees";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -254,6 +255,7 @@ function AddStudentDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
 }
 
 function StudentDialog({ student, currentClassId, onClose }: { student: Student | null; currentClassId?: string; onClose: () => void }) {
+  const { canManageFinance } = useSchool();
   return (
     <Dialog open={!!student} onOpenChange={(v) => !v && onClose()}>
       {/* Anchored near the top: tabs have different heights and a centred dialog would jump. */}
@@ -272,11 +274,13 @@ function StudentDialog({ student, currentClassId, onClose }: { student: Student 
                 <TabsTrigger value="guardians">Guardians</TabsTrigger>
                 <TabsTrigger value="documents">Documents</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
+                {canManageFinance && <TabsTrigger value="fees">Fees</TabsTrigger>}
               </TabsList>
               <TabsContent value="profile"><ProfileTab student={student} currentClassId={currentClassId} onClose={onClose} /></TabsContent>
               <TabsContent value="guardians"><GuardiansTab student={student} /></TabsContent>
               <TabsContent value="documents"><StudentDocuments student={student} /></TabsContent>
               <TabsContent value="history"><StudentHistory studentId={student.id} /></TabsContent>
+              {canManageFinance && <TabsContent value="fees"><StudentFees student={student} /></TabsContent>}
             </Tabs>
           </>
         )}

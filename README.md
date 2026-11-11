@@ -31,6 +31,10 @@ A standalone school management app for administrators, teachers and parents. It 
   teacher view, today's lessons on the teacher dashboard; the database refuses teacher, room and class clashes
 - Holidays: school calendar; holidays are not counted as leave days
 - Attendance: daily register per class (present / late / absent / excused)
+- Finance (administrators and the Accountant role): fee structures per grade (once / per term / monthly lines),
+  billing runs that invoice every enrolled student without duplicates, scholarships and discounts, payments with
+  numbered receipts (voided with a reason, never deleted), outstanding balances, printable invoices and receipts,
+  expenses and budgets, reports with payroll counted as salaries, CSV exports; families see their own fees
 - Performance records: classroom observations and evaluations rated on five criteria, commendations and
   concerns; staff read the ones shared with them and acknowledge or reply
 - Payroll: salaries, allowances and deductions, monthly runs with income tax (editable brackets, defaults from

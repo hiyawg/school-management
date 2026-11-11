@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -26,7 +26,10 @@ export default function Attendance() {
   const { data: allClasses = [] } = useClasses(year?.id);
   const mine = useMyAssignments(year?.id);
   // Teachers mark their homeroom classes first, then classes where they teach a subject.
-  const classes = isAdmin ? allClasses : [...mine.homeroom, ...mine.teaching.filter((c) => !mine.homeroom.includes(c))];
+  const classes = useMemo(
+    () => (isAdmin ? allClasses : [...mine.homeroom, ...mine.teaching.filter((c) => !mine.homeroom.includes(c))]),
+    [isAdmin, allClasses, mine.homeroom, mine.teaching],
+  );
   const [classId, setClassId] = useState<string>();
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const { data: roster = [] } = useClassRoster(classId);

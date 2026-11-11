@@ -85,12 +85,12 @@ export function useMembers() {
   });
 }
 
-// Teachers, administrators and registrars, one entry per person (school_members has a row per role).
+// Staff (everyone but parents and students), one entry per person (school_members has a row per role).
 export function useStaffPeople() {
   const members = useMembers();
   const people = new Map<string, { userId: string; name: string; email: string | null }>();
   for (const m of members.data ?? []) {
-    if (m.role !== "teacher" && m.role !== "school_admin" && m.role !== "registrar") continue;
+    if (m.role === "parent" || m.role === "student") continue;
     const p = people.get(m.user_id) ?? { userId: m.user_id, name: "", email: m.email };
     p.name ||= m.full_name ?? "";
     people.set(m.user_id, p);

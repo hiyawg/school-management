@@ -1,4 +1,4 @@
-export type SchoolRole = "school_admin" | "teacher" | "registrar" | "parent" | "student";
+export type SchoolRole = "school_admin" | "teacher" | "registrar" | "accountant" | "parent" | "student";
 export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 export type AssessmentKind = "quiz" | "test" | "assignment" | "midterm" | "final" | "learning_skill" | "learning_exam";
 
@@ -282,6 +282,7 @@ export const roleLabel: Record<SchoolRole, string> = {
   school_admin: "Administrator",
   teacher: "Teacher",
   registrar: "Registrar",
+  accountant: "Accountant",
   parent: "Parent",
   student: "Student",
 };
@@ -308,3 +309,34 @@ export const className =(c: Pick<SchoolClass, "grade_level" | "section">) =>
 export const studentName = (s: Pick<Student, "first_name" | "father_name">) => `${s.first_name} ${s.father_name}`;
 
 export const isLearningKind = (k: AssessmentKind) => k === "learning_skill" || k === "learning_exam";
+
+export type FeeKind = "tuition" | "registration" | "other";
+export type FeeFrequency = "once" | "per_term" | "monthly";
+export const feeKindLabel: Record<FeeKind, string> = { tuition: "Tuition", registration: "Registration", other: "Other" };
+export const frequencyLabel: Record<FeeFrequency, string> = { once: "Once", per_term: "Per term", monthly: "Monthly" };
+export type FeeStructure = { id: string; academic_year_id: string; grade_level: number | null; name: string };
+export type FeeItem = { id: string; structure_id: string; name: string; kind: FeeKind; frequency: FeeFrequency; amount: number };
+export type Discount = {
+  id: string; student_id: string; academic_year_id: string; name: string; kind: "percent" | "fixed"; value: number;
+  applies_to: "tuition" | "all"; notes: string | null;
+};
+export type InvoiceState = "paid" | "partial" | "unpaid" | "overdue" | "void";
+export const invoiceStateLabel: Record<InvoiceState, string> = { paid: "Paid", partial: "Part paid", unpaid: "Unpaid", overdue: "Overdue", void: "Void" };
+export type InvoiceBalance = {
+  invoice_id: string; student_id: string; academic_year_id: string | null; number: string; title: string;
+  issued_on: string; due_on: string | null; total: number; paid: number; balance: number; state: InvoiceState;
+};
+export type InvoiceLine = { id: string; invoice_id: string; description: string; kind: FeeKind | "discount"; amount: number };
+export type PaymentMethod = "cash" | "bank" | "telebirr" | "cbe_birr" | "cheque" | "other";
+export const paymentMethodLabel: Record<PaymentMethod, string> = {
+  cash: "Cash", bank: "Bank transfer", telebirr: "Telebirr", cbe_birr: "CBE Birr", cheque: "Cheque", other: "Other",
+};
+export type Payment = {
+  id: string; invoice_id: string; student_id: string; receipt_number: string; amount: number; paid_on: string;
+  method: PaymentMethod; reference: string | null; voided: boolean; void_reason: string | null; created_at: string;
+};
+export type Expense = {
+  id: string; academic_year_id: string | null; category: string; description: string; amount: number; spent_on: string;
+  paid_to: string | null; method: PaymentMethod; reference: string | null;
+};
+export type BudgetLine = { id: string; academic_year_id: string; category: string; amount: number };

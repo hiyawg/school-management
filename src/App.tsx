@@ -24,11 +24,12 @@ import MyPage from "@/pages/MyPage";
 import Syllabus from "@/pages/Syllabus";
 import Exams from "@/pages/Exams";
 import Calendar from "@/pages/Calendar";
+import Finance from "@/pages/finance/Finance";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
 
 function Gate() {
-  const { session, loading, error, refresh, signOut, memberships, isAdmin, isStaff, isTeacher, canManageStudents } = useSchool();
+  const { session, loading, error, refresh, signOut, memberships, isAdmin, isStaff, isTeacher, canManageStudents, canManageFinance } = useSchool();
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading…</div>;
@@ -70,6 +71,7 @@ function Gate() {
           {(isAdmin || isTeacher) && <Route path="syllabus" element={<Syllabus />} />}
           {isStaff && <Route path="exams" element={<Exams />} />}
           <Route path="calendar" element={<Calendar />} />
+          {canManageFinance && <Route path="finance" element={<Finance />} />}
           <Route path="children" element={<MyChildren />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

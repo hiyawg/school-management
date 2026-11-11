@@ -67,7 +67,7 @@ export default function Staff() {
       p.name ||= m.full_name ?? "";
       p.phone ??= m.phone;
       p.email ??= m.email;
-      p.isStaff ||= m.role === "teacher" || m.role === "school_admin" || m.role === "registrar";
+      p.isStaff ||= m.role !== "parent" && m.role !== "student";
       byUser.set(m.user_id, p);
     }
     return [...byUser.values()].sort((a, b) => (a.name || a.email || "").localeCompare(b.name || b.email || ""));

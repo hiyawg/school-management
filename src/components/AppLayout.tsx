@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ArrowUpRight, BookMarked, CalendarDays, FileText, BookOpen, CalendarCheck, CalendarOff, ClipboardCheck, Clock, ClipboardList, IdCard, Wallet, GraduationCap, LayoutDashboard, LogOut, Plus, Settings, Users, UserSquare } from "lucide-react";
+import { ArrowUpRight, Banknote, BookMarked, CalendarDays, FileText, BookOpen, CalendarCheck, CalendarOff, ClipboardCheck, Clock, ClipboardList, IdCard, Wallet, GraduationCap, LayoutDashboard, LogOut, Plus, Settings, Users, UserSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useSchool } from "@/contexts/SchoolContext";
 import { roleLabel } from "@/lib/types";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 
 export default function AppLayout() {
-  const { school, roles, memberships, selectSchool, isAdmin, isStaff, isTeacher, canManageStudents, signOut, session } = useSchool();
+  const { school, roles, memberships, selectSchool, isAdmin, isStaff, isTeacher, canManageStudents, canManageFinance, signOut, session } = useSchool();
   const navigate = useNavigate();
 
   const links = [
@@ -22,6 +22,7 @@ export default function AppLayout() {
     { to: "/exams", label: "Exams", icon: FileText, show: isStaff },
     { to: "/calendar", label: "Calendar", icon: CalendarDays, show: true },
     { to: "/leave", label: "Leave", icon: CalendarOff, show: isStaff },
+    { to: "/finance", label: "Finance", icon: Banknote, show: canManageFinance },
     { to: "/staff", label: "People", icon: Users, show: isAdmin },
     { to: "/staff-attendance", label: "Staff attendance", icon: ClipboardCheck, show: isAdmin },
     { to: "/payroll", label: "Payroll", icon: Wallet, show: isAdmin },
