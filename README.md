@@ -7,7 +7,13 @@ A standalone school management app for administrators, teachers and parents. It 
 ## Features (v1)
 
 - Register a school; the creator becomes its administrator
-- Academic years, terms, classes (KG–12, sections), subjects per class with a teacher
+- Academic years and terms with dates; classes (KG–12, sections, capacity; a class with students can't be deleted)
+- School subject list (code, periods per week, learning-app link), added to every section of a grade at once
+- Syllabus: units and topics per subject and grade, importable from the learning app; lesson plans per class
+  and subject, marked taught; coverage per class
+- Exams: exam periods, schedule with rooms and invigilators (class, room and invigilator clashes refused),
+  gradebook columns created from the schedule, published to families when ready
+- Calendar: month view of year and term dates, holidays, exams and school events (events can be staff-only)
 - People: add teachers, administrators and parents by email (they need an account in this app first)
 - Students: register with guardian (automatic student IDs), edit profiles and guardians, enroll, transfer
   between classes, mark as withdrawn or transferred out

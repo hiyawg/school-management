@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import type { AcademicYear, ClassSubject, Member, Period, SchoolClass, Slot, Student, Term } from "@/lib/types";
+import type { AcademicYear, ClassSubject, Member, Period, SchoolClass, Slot, Student, Subject, Term } from "@/lib/types";
 
 function must<T>(res: { data: T | null; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -143,5 +143,14 @@ export function useSlots(filter: { classIds?: string[]; subjectIds?: string[] })
     queryKey: ["slots", column, ids.join()],
     enabled: ids.length > 0,
     queryFn: async () => must<Slot[]>(await supabase.from("timetable_slots").select("*").in(column, ids)),
+  });
+}
+
+export function useSubjects() {
+  const { school } = useSchool();
+  return useQuery({
+    queryKey: ["subjects", school?.id],
+    enabled: !!school,
+    queryFn: async () => must<Subject[]>(await supabase.from("subjects").select("*").eq("school_id", school!.id).order("name")),
   });
 }

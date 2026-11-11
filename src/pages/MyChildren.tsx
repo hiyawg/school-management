@@ -45,15 +45,29 @@ function ChildCard({ child }: { child: Student }) {
     queryKey: ["child-summary", child.id],
     queryFn: async () => {
       const [enr, att, sc] = await Promise.all([
-        supabase.from("enrollments").select("class:classes(grade_level, section)").eq("student_id", child.id).eq("status", "active"),
+        supabase.from("enrollments").select("class:classes(id, grade_level, section, academic_year:academic_years(is_current))")
+          .eq("student_id", child.id).eq("status", "active"),
         supabase.from("attendance").select("status, date").eq("student_id", child.id).order("date", { ascending: false }).limit(60),
         supabase.from("scores").select("score, assessment:assessments(title, max_score, kind, class_subject:class_subjects(subject_name))")
           .eq("student_id", child.id).order("updated_at", { ascending: false }).limit(15),
       ]);
       const err = enr.error ?? att.error ?? sc.error;
       if (err) throw err;
+      // The current year's class; a promoted student keeps last year's enrollment for history.
+      const rows = (enr.data ?? []) as unknown as { class: { id: string; grade_level: number; section: string; academic_year: { is_current: boolean } } }[];
+      const cls = (rows.find((r) => r.class.academic_year?.is_current) ?? rows[0])?.class;
+      const exams = cls
+        ? await supabase.from("exam_sittings")
+          .select("id, date, starts_at, ends_at, room, class_subject:class_subjects(subject_name), period:exam_periods(name)")
+          .eq("class_id", cls.id).gte("date", new Date().toISOString().slice(0, 10)).order("date").order("starts_at").limit(20)
+        : { data: [], error: null };
+      if (exams.error) throw exams.error;
       return {
-        cls: (enr.data?.[0] as unknown as { class: { grade_level: number; section: string } } | undefined)?.class,
+        cls,
+        exams: (exams.data ?? []) as unknown as {
+          id: string; date: string; starts_at: string; ends_at: string; room: string | null;
+          class_subject: { subject_name: string }; period: { name: string };
+        }[],
         attendance: (att.data ?? []) as { status: string; date: string }[],
         scores: (sc.data ?? []) as unknown as {
           score: number | null;
@@ -107,6 +121,20 @@ function ChildCard({ child }: { child: Student }) {
             ))}
           </div>
         </div>
+
+        {(data?.exams ?? []).length > 0 && (
+          <div className="md:col-span-3">
+            <div className="mb-2 text-sm text-muted-foreground">Upcoming exams</div>
+            <div className="divide-y text-sm">
+              {data!.exams.map((e) => (
+                <div key={e.id} className="flex flex-wrap justify-between gap-2 py-1.5">
+                  <span>{e.class_subject.subject_name} <span className="text-muted-foreground">· {e.period.name}</span></span>
+                  <span className="tabular-nums text-muted-foreground">{e.date} · {e.starts_at.slice(0, 5)}–{e.ends_at.slice(0, 5)}{e.room && ` · ${e.room}`}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <details className="md:col-span-3">
           <summary className="cursor-pointer text-sm font-medium">Full history by year</summary>

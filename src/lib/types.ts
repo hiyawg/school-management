@@ -13,7 +13,7 @@ export type School = {
 };
 
 export type AcademicYear = { id: string; school_id: string; name: string; is_current: boolean; starts_on: string | null; ends_on: string | null };
-export type Term = { id: string; academic_year_id: string; name: string };
+export type Term = { id: string; academic_year_id: string; name: string; starts_on: string | null; ends_on: string | null };
 
 export type SchoolClass = {
   id: string;
@@ -22,6 +22,7 @@ export type SchoolClass = {
   grade_level: number;
   section: string;
   homeroom_teacher_id: string | null;
+  capacity: number | null;
 };
 
 export type Student = {
@@ -218,7 +219,43 @@ export type ClassSubject = {
   curriculum_grade_id: string | null;
   teacher_id: string | null;
   periods_per_week: number | null;
+  subject_id: string | null;
 };
+
+export type Subject = { id: string; name: string; code: string | null; default_periods_per_week: number | null; curriculum_subject_id: string | null };
+export type SyllabusUnit = { id: string; subject_id: string; grade_level: number; position: number; title: string; description: string | null; curriculum_unit_id: string | null };
+export type SyllabusTopic = { id: string; unit_id: string; position: number; title: string; planned_periods: number | null; curriculum_topic_id: string | null };
+export type LessonStatus = "planned" | "taught" | "skipped";
+export type LessonPlan = {
+  id: string;
+  class_subject_id: string;
+  topic_id: string | null;
+  planned_on: string | null;
+  title: string;
+  objectives: string | null;
+  activities: string | null;
+  homework: string | null;
+  status: LessonStatus;
+  taught_on: string | null;
+  notes: string | null;
+};
+export type ExamKind = "midterm" | "final" | "mock" | "other";
+export const examKindLabel: Record<ExamKind, string> = { midterm: "Mid-term", final: "Final", mock: "Mock / national practice", other: "Other" };
+export type ExamPeriod = { id: string; academic_year_id: string; term_id: string | null; name: string; kind: ExamKind; starts_on: string; ends_on: string; published: boolean };
+export type ExamSitting = {
+  id: string;
+  exam_period_id: string;
+  class_id: string;
+  class_subject_id: string;
+  date: string;
+  starts_at: string;
+  ends_at: string;
+  room: string | null;
+  assessment_id: string | null;
+  notes: string | null;
+};
+export type EventKind = "event" | "meeting" | "deadline" | "other";
+export type SchoolEvent = { id: string; title: string; kind: EventKind; starts_on: string; ends_on: string; audience: "everyone" | "staff"; description: string | null };
 
 export type Period = { id: string; name: string; starts_at: string; ends_at: string; is_break: boolean };
 export type Slot = { id: string; class_id: string; period_id: string; weekday: number; class_subject_id: string; room: string | null };

@@ -4,8 +4,9 @@ import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { curriculum, supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import { useClasses, useClassSubjects, useCurrentYear, useTeachers, useTerms, useYears } from "@/hooks/useSchoolData";
-import { className, type Member, type SchoolClass } from "@/lib/types";
+import { useClasses, useClassSubjects, useCurrentYear, useSubjects, useTeachers, useTerms, useYears } from "@/hooks/useSchoolData";
+import { className, type Member, type SchoolClass, type Term } from "@/lib/types";
+import SubjectList from "@/components/SubjectList";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +28,7 @@ export default function Setup() {
   const [yearName, setYearName] = useState("");
   const [yearStart, setYearStart] = useState("");
   const [yearEnd, setYearEnd] = useState("");
-  const [termName, setTermName] = useState("");
+  const [term, setTerm] = useState({ name: "", start: "", end: "" });
   const [grade, setGrade] = useState("1");
   const [section, setSection] = useState("A");
   const [homeroom, setHomeroom] = useState(NONE);
@@ -122,20 +123,26 @@ export default function Setup() {
             <CardDescription>Used to group gradebook assessments and report cards.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {terms.map((t) => <Badge key={t.id} variant="secondary">{t.name}</Badge>)}
+            <div className="divide-y rounded-md border">
+              {terms.length === 0 && <p className="p-3 text-sm text-muted-foreground">No terms yet.</p>}
+              {terms.map((t) => <TermRow key={t.id} term={t} />)}
             </div>
-            <div className="flex gap-2">
-              <Input placeholder="Semester 1" value={termName} disabled={!year} onChange={(e) => setTermName(e.target.value)} />
+            <div className="flex flex-wrap gap-2">
+              <Input className="w-36" placeholder="Semester 1" value={term.name} disabled={!year} onChange={(e) => setTerm({ ...term, name: e.target.value })} />
+              <Input className="w-40" type="date" aria-label="Starts" title="Starts" value={term.start} disabled={!year} onChange={(e) => setTerm({ ...term, start: e.target.value })} />
+              <Input className="w-40" type="date" aria-label="Ends" title="Ends" value={term.end} disabled={!year} onChange={(e) => setTerm({ ...term, end: e.target.value })} />
               <Button
-                disabled={!year || !termName.trim()}
+                disabled={!year || !term.name.trim()}
                 onClick={async () => {
                   await run(
-                    supabase.from("terms").insert({ school_id: school!.id, academic_year_id: year!.id, name: termName.trim() }),
+                    supabase.from("terms").insert({
+                      school_id: school!.id, academic_year_id: year!.id, name: term.name.trim(),
+                      starts_on: term.start || null, ends_on: term.end || null,
+                    }),
                     "Term added",
                     [["terms"]],
                   );
-                  setTermName("");
+                  setTerm({ name: "", start: "", end: "" });
                 }}
               >
                 Add
@@ -213,7 +220,9 @@ export default function Setup() {
         </CardContent>
       </Card>
 
-      {selectedClass && <ClassSubjectsCard cls={selectedClass} />}
+      {selectedClass && <ClassSubjectsCard key={selectedClass.id} cls={selectedClass} />}
+
+      <SubjectList />
     </div>
   );
 }
@@ -222,9 +231,12 @@ function ClassSubjectsCard({ cls }: { cls: SchoolClass }) {
   const qc = useQueryClient();
   const { data: subjects = [] } = useClassSubjects(cls.id);
   const { data: teachers = [] } = useTeachers();
-  const [name, setName] = useState("");
+  const { data: schoolSubjects = [] } = useSubjects();
+  const [subjectId, setSubjectId] = useState("");
   const [curriculumId, setCurriculumId] = useState(NONE);
   const [teacher, setTeacher] = useState(NONE);
+  const [section, setSection] = useState(cls.section);
+  const [capacity, setCapacity] = useState(cls.capacity?.toString() ?? "");
 
   // Curriculum read from the education project: public.grades rows are one subject at one grade level.
   const { data: curriculumOptions = [] } = useQuery({
@@ -233,28 +245,54 @@ function ClassSubjectsCard({ cls }: { cls: SchoolClass }) {
     queryFn: async () => {
       const { data, error } = await curriculum!
         .from("grades")
-        .select("grade_id, grade_name, subjects(name)")
+        .select("grade_id, grade_name, subject_id, subjects(name)")
         .eq("grade_level", cls.grade_level);
       if (error) throw error;
-      return (data ?? []) as unknown as { grade_id: string; grade_name: string | null; subjects: { name: string } | null }[];
+      return (data ?? []) as unknown as { grade_id: string; grade_name: string | null; subject_id: string; subjects: { name: string } | null }[];
     },
   });
 
+  // Picking a list subject also picks its learning-app curriculum for this grade when it is linked.
+  const pickSubject = (id: string) => {
+    setSubjectId(id);
+    const s = schoolSubjects.find((x) => x.id === id);
+    const match = s?.curriculum_subject_id && curriculumOptions.find((c) => c.subject_id === s.curriculum_subject_id);
+    if (match) setCurriculumId(match.grade_id);
+  };
+
   const add = async () => {
-    const linked = curriculumOptions.find((c) => c.grade_id === curriculumId);
-    const subjectName = name.trim() || linked?.subjects?.name;
-    if (!subjectName) return toast.error("Enter a subject name or pick a curriculum subject");
+    const s = schoolSubjects.find((x) => x.id === subjectId);
+    if (!s) return toast.error("Choose a subject from the school list");
     const { error } = await supabase.from("class_subjects").insert({
       school_id: cls.school_id,
       class_id: cls.id,
-      subject_name: subjectName,
+      subject_name: s.name,
+      subject_id: s.id,
+      periods_per_week: s.default_periods_per_week,
       curriculum_grade_id: curriculumId === NONE ? null : curriculumId,
       teacher_id: teacher === NONE ? null : teacher,
     });
-    if (error) return toast.error(error.message);
-    setName("");
+    if (error) return toast.error(error.code === "23505" ? `${className(cls)} already has ${s.name}` : error.message);
+    setSubjectId("");
     setCurriculumId(NONE);
     qc.invalidateQueries({ queryKey: ["class_subjects", cls.id] });
+  };
+
+  const saveDetails = async () => {
+    const { error } = await supabase.from("classes").update({
+      section: section.trim().toUpperCase(), capacity: capacity === "" ? null : Number(capacity),
+    }).eq("id", cls.id);
+    if (error) return toast.error(error.code === "23505" ? `There is already a section ${section.trim().toUpperCase()} in this grade` : error.message);
+    toast.success("Class saved");
+    qc.invalidateQueries({ queryKey: ["classes"] });
+  };
+
+  const deleteClass = async () => {
+    if (!confirm(`Delete ${className(cls)}? Its subjects, timetable and gradebook are deleted too.`)) return;
+    const { error } = await supabase.from("classes").delete().eq("id", cls.id);
+    if (error) return toast.error(error.message);
+    toast.success("Class deleted");
+    qc.invalidateQueries({ queryKey: ["classes"] });
   };
 
   const remove = async (id: string) => {
@@ -291,6 +329,12 @@ function ClassSubjectsCard({ cls }: { cls: SchoolClass }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1"><Label>Section</Label><Input className="w-20" value={section} onChange={(e) => setSection(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Capacity</Label><Input className="w-24" inputMode="numeric" placeholder="No limit" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></div>
+          <Button variant="outline" onClick={saveDetails}>Save</Button>
+          <Button variant="ghost" className="text-destructive" onClick={deleteClass}><Trash2 className="mr-2 h-4 w-4" /> Delete class</Button>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <Label>Homeroom teacher</Label>
           <Select value={cls.homeroom_teacher_id ?? NONE} onValueChange={setHomeroom}>
@@ -303,6 +347,13 @@ function ClassSubjectsCard({ cls }: { cls: SchoolClass }) {
         </div>
         <div className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
           <div className="space-y-1">
+            <Label>Subject</Label>
+            <Select value={subjectId} onValueChange={pickSubject}>
+              <SelectTrigger><SelectValue placeholder={schoolSubjects.length ? "Choose" : "Add subjects below first"} /></SelectTrigger>
+              <SelectContent>{schoolSubjects.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
             <Label>Learning-app curriculum</Label>
             <Select value={curriculumId} onValueChange={setCurriculumId}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -313,10 +364,6 @@ function ClassSubjectsCard({ cls }: { cls: SchoolClass }) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Subject name</Label>
-            <Input placeholder="Uses curriculum name if empty" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
             <Label>Teacher</Label>
@@ -366,4 +413,30 @@ function teacherOptions(members: Member[]) {
     byUser.set(m.user_id, { userId: m.user_id, name: prev?.name || m.full_name || m.email || m.user_id.slice(0, 8) });
   }
   return [...byUser.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function TermRow({ term }: { term: Term }) {
+  const qc = useQueryClient();
+  const save = async (patch: Partial<Term>) => {
+    const { error } = await supabase.from("terms").update(patch).eq("id", term.id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["terms"] });
+  };
+  const remove = async () => {
+    if (!confirm(`Delete ${term.name}? Assessments in it stay in the gradebook without a term.`)) return;
+    const { error } = await supabase.from("terms").delete().eq("id", term.id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["terms"] });
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+      <Input key={`n-${term.name}`} className="h-8 w-36" aria-label="Term name" defaultValue={term.name}
+        onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== term.name && save({ name: e.target.value.trim() })} />
+      <Input key={`s-${term.starts_on}`} className="h-8 w-40" type="date" aria-label={`${term.name} starts`} defaultValue={term.starts_on ?? ""}
+        onBlur={(e) => e.target.value !== (term.starts_on ?? "") && save({ starts_on: e.target.value || null })} />
+      <Input key={`e-${term.ends_on}`} className="h-8 w-40" type="date" aria-label={`${term.name} ends`} defaultValue={term.ends_on ?? ""}
+        onBlur={(e) => e.target.value !== (term.ends_on ?? "") && save({ ends_on: e.target.value || null })} />
+      <Button variant="ghost" size="icon" aria-label={`Delete ${term.name}`} onClick={remove}><Trash2 className="h-4 w-4" /></Button>
+    </div>
+  );
 }

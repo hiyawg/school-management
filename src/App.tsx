@@ -21,6 +21,9 @@ import Timetable from "@/pages/Timetable";
 import Admissions from "@/pages/Admissions";
 import Payroll from "@/pages/Payroll";
 import MyPage from "@/pages/MyPage";
+import Syllabus from "@/pages/Syllabus";
+import Exams from "@/pages/Exams";
+import Calendar from "@/pages/Calendar";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
 
@@ -64,6 +67,9 @@ function Gate() {
           {canManageStudents && <Route path="admissions" element={<Admissions />} />}
           {isAdmin && <Route path="payroll" element={<Payroll />} />}
           {isStaff && <Route path="me" element={<MyPage />} />}
+          {(isAdmin || isTeacher) && <Route path="syllabus" element={<Syllabus />} />}
+          {isStaff && <Route path="exams" element={<Exams />} />}
+          <Route path="calendar" element={<Calendar />} />
           <Route path="children" element={<MyChildren />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ArrowUpRight, BookOpen, CalendarCheck, CalendarOff, ClipboardCheck, Clock, ClipboardList, IdCard, Wallet, GraduationCap, LayoutDashboard, LogOut, Plus, Settings, Users, UserSquare } from "lucide-react";
+import { ArrowUpRight, BookMarked, CalendarDays, FileText, BookOpen, CalendarCheck, CalendarOff, ClipboardCheck, Clock, ClipboardList, IdCard, Wallet, GraduationCap, LayoutDashboard, LogOut, Plus, Settings, Users, UserSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useSchool } from "@/contexts/SchoolContext";
 import { roleLabel } from "@/lib/types";
@@ -18,6 +18,9 @@ export default function AppLayout() {
     { to: "/attendance", label: "Attendance", icon: CalendarCheck, show: isAdmin || isTeacher },
     { to: "/gradebook", label: "Gradebook", icon: BookOpen, show: isAdmin || isTeacher },
     { to: "/timetable", label: "Timetable", icon: Clock, show: isStaff },
+    { to: "/syllabus", label: "Syllabus", icon: BookMarked, show: isAdmin || isTeacher },
+    { to: "/exams", label: "Exams", icon: FileText, show: isStaff },
+    { to: "/calendar", label: "Calendar", icon: CalendarDays, show: true },
     { to: "/leave", label: "Leave", icon: CalendarOff, show: isStaff },
     { to: "/staff", label: "People", icon: Users, show: isAdmin },
     { to: "/staff-attendance", label: "Staff attendance", icon: ClipboardCheck, show: isAdmin },
