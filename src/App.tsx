@@ -18,11 +18,14 @@ import Promotion from "@/pages/Promotion";
 import StaffAttendance from "@/pages/StaffAttendance";
 import Leave from "@/pages/Leave";
 import Timetable from "@/pages/Timetable";
+import Admissions from "@/pages/Admissions";
+import Payroll from "@/pages/Payroll";
+import MyPage from "@/pages/MyPage";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
 
 function Gate() {
-  const { session, loading, error, refresh, signOut, memberships, isAdmin, isStaff } = useSchool();
+  const { session, loading, error, refresh, signOut, memberships, isAdmin, isStaff, isTeacher, canManageStudents } = useSchool();
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading…</div>;
@@ -56,8 +59,11 @@ function Gate() {
           {isStaff && <Route path="leave" element={<Leave />} />}
           {isStaff && <Route path="timetable" element={<Timetable />} />}
           {isStaff && <Route path="students" element={<Students />} />}
-          {isStaff && <Route path="attendance" element={<Attendance />} />}
-          {isStaff && <Route path="gradebook" element={<Gradebook />} />}
+          {(isAdmin || isTeacher) && <Route path="attendance" element={<Attendance />} />}
+          {(isAdmin || isTeacher) && <Route path="gradebook" element={<Gradebook />} />}
+          {canManageStudents && <Route path="admissions" element={<Admissions />} />}
+          {isAdmin && <Route path="payroll" element={<Payroll />} />}
+          {isStaff && <Route path="me" element={<MyPage />} />}
           <Route path="children" element={<MyChildren />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -10,6 +10,7 @@ import {
   type Guardian, type Student, type StudentStatus,
 } from "@/lib/types";
 import StudentHistory from "@/components/StudentHistory";
+import { StudentDocuments, StudentPhoto } from "@/components/StudentFiles";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +27,7 @@ const LEFT = "left";
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function Students() {
-  const { isAdmin } = useSchool();
+  const { canManageStudents } = useSchool();
   const { data: year } = useCurrentYear();
   const { data: classes = [] } = useClasses(year?.id);
   const { data: students = [] } = useStudents();
@@ -71,7 +72,7 @@ export default function Students() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Students</h1>
-        {isAdmin && (
+        {canManageStudents && (
           <Button onClick={() => setAdding(true)} disabled={!year}>
             <Plus className="mr-2 h-4 w-4" /> Register student
           </Button>
@@ -268,10 +269,12 @@ function StudentDialog({ student, currentClassId, onClose }: { student: Student 
               <TabsList>
                 <TabsTrigger value="profile">Profile</TabsTrigger>
                 <TabsTrigger value="guardians">Guardians</TabsTrigger>
+                <TabsTrigger value="documents">Documents</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
               </TabsList>
               <TabsContent value="profile"><ProfileTab student={student} currentClassId={currentClassId} onClose={onClose} /></TabsContent>
               <TabsContent value="guardians"><GuardiansTab student={student} /></TabsContent>
+              <TabsContent value="documents"><StudentDocuments student={student} /></TabsContent>
               <TabsContent value="history"><StudentHistory studentId={student.id} /></TabsContent>
             </Tabs>
           </>
@@ -282,7 +285,7 @@ function StudentDialog({ student, currentClassId, onClose }: { student: Student 
 }
 
 function ProfileTab({ student, currentClassId, onClose }: { student: Student; currentClassId?: string; onClose: () => void }) {
-  const { school, isAdmin } = useSchool();
+  const { school, canManageStudents } = useSchool();
   const qc = useQueryClient();
   const { data: year } = useCurrentYear();
   const { data: classes = [] } = useClasses(year?.id);
@@ -312,23 +315,26 @@ function ProfileTab({ student, currentClassId, onClose }: { student: Student; cu
 
   return (
     <div className="space-y-4 text-sm">
-      <div className="grid gap-2 sm:grid-cols-2">
-        {row("ID", student.student_code)}
-        {row("Gender", student.gender === "M" ? "Male" : student.gender === "F" ? "Female" : null)}
-        {row("Born", student.date_of_birth)}
-        {row("Admitted", student.admission_date)}
-        {row("Address", student.address)}
-        {row("Previous school", student.previous_school)}
-        {row("Status", studentStatusLabel[student.status] + (student.left_on ? ` (${student.left_on})` : ""))}
-        {row("Learning app", student.learning_student_id ? "Linked" : "Not linked")}
-        <div className="sm:col-span-2">{row("Medical notes", student.medical_notes)}</div>
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <StudentPhoto student={student} />
+        <div className="grid flex-1 content-start gap-2 sm:grid-cols-2">
+          {row("ID", student.student_code)}
+          {row("Gender", student.gender === "M" ? "Male" : student.gender === "F" ? "Female" : null)}
+          {row("Born", student.date_of_birth)}
+          {row("Admitted", student.admission_date)}
+          {row("Address", student.address)}
+          {row("Previous school", student.previous_school)}
+          {row("Status", studentStatusLabel[student.status] + (student.left_on ? ` (${student.left_on})` : ""))}
+          {row("Learning app", student.learning_student_id ? "Linked" : "Not linked")}
+          <div className="sm:col-span-2">{row("Medical notes", student.medical_notes)}</div>
+        </div>
       </div>
-      {isAdmin && (
+      {canManageStudents && (
         <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
           <Pencil className="mr-2 h-4 w-4" /> Edit profile
         </Button>
       )}
-      {isAdmin && student.status === "active" && (
+      {canManageStudents && student.status === "active" && (
         <div className="space-y-1">
           <Label>{currentClassId ? "Move to class" : "Enroll in class"}</Label>
           <Select value={currentClassId} onValueChange={moveTo}>
@@ -432,7 +438,7 @@ function ProfileForm({ student, currentClassId, onDone }: { student: Student; cu
 }
 
 function GuardiansTab({ student }: { student: Student }) {
-  const { isAdmin } = useSchool();
+  const { canManageStudents } = useSchool();
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -467,7 +473,7 @@ function GuardiansTab({ student }: { student: Student }) {
               <div>{g.full_name}{g.relationship && <span className="text-muted-foreground"> ({g.relationship})</span>}</div>
               <div className="text-xs text-muted-foreground">{g.phone ?? "No phone"}{g.user_id && " · can see this student in the app"}</div>
             </div>
-            {isAdmin && (
+            {canManageStudents && (
               <div className="flex shrink-0">
                 <Button variant="ghost" size="icon" aria-label="Edit guardian" onClick={() => setEditingId(g.id)}><Pencil className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="icon" aria-label="Remove guardian" onClick={() => remove(g)}><Trash2 className="h-4 w-4" /></Button>
@@ -476,7 +482,7 @@ function GuardiansTab({ student }: { student: Student }) {
           </div>
         ),
       )}
-      {isAdmin && (adding ? (
+      {canManageStudents && (adding ? (
         <GuardianForm studentId={student.id} onDone={() => { setAdding(false); refresh(); qc.invalidateQueries({ queryKey: ["members"] }); }} />
       ) : (
         <Button variant="outline" size="sm" onClick={() => setAdding(true)}><Plus className="mr-2 h-4 w-4" /> Add guardian</Button>

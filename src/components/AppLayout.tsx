@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ArrowUpRight, BookOpen, CalendarCheck, CalendarOff, ClipboardCheck, Clock, GraduationCap, LayoutDashboard, LogOut, Plus, Settings, Users, UserSquare } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarCheck, CalendarOff, ClipboardCheck, Clock, ClipboardList, IdCard, Wallet, GraduationCap, LayoutDashboard, LogOut, Plus, Settings, Users, UserSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useSchool } from "@/contexts/SchoolContext";
 import { roleLabel } from "@/lib/types";
@@ -8,20 +8,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 
 export default function AppLayout() {
-  const { school, roles, memberships, selectSchool, isAdmin, isStaff, signOut, session } = useSchool();
+  const { school, roles, memberships, selectSchool, isAdmin, isStaff, isTeacher, canManageStudents, signOut, session } = useSchool();
   const navigate = useNavigate();
 
   const links = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, show: isStaff },
     { to: "/students", label: "Students", icon: GraduationCap, show: isStaff },
-    { to: "/attendance", label: "Attendance", icon: CalendarCheck, show: isStaff },
-    { to: "/gradebook", label: "Gradebook", icon: BookOpen, show: isStaff },
+    { to: "/admissions", label: "Admissions", icon: ClipboardList, show: canManageStudents },
+    { to: "/attendance", label: "Attendance", icon: CalendarCheck, show: isAdmin || isTeacher },
+    { to: "/gradebook", label: "Gradebook", icon: BookOpen, show: isAdmin || isTeacher },
     { to: "/timetable", label: "Timetable", icon: Clock, show: isStaff },
     { to: "/leave", label: "Leave", icon: CalendarOff, show: isStaff },
     { to: "/staff", label: "People", icon: Users, show: isAdmin },
     { to: "/staff-attendance", label: "Staff attendance", icon: ClipboardCheck, show: isAdmin },
+    { to: "/payroll", label: "Payroll", icon: Wallet, show: isAdmin },
     { to: "/promotion", label: "Promotion", icon: ArrowUpRight, show: isAdmin },
     { to: "/setup", label: "School setup", icon: Settings, show: isAdmin },
+    { to: "/me", label: "My page", icon: IdCard, show: isStaff },
     { to: isStaff ? "/children" : "/", label: "My children", icon: UserSquare, show: roles.includes("parent") },
   ].filter((l) => l.show);
 

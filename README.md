@@ -11,6 +11,10 @@ A standalone school management app for administrators, teachers and parents. It 
 - People: add teachers, administrators and parents by email (they need an account in this app first)
 - Students: register with guardian (automatic student IDs), edit profiles and guardians, enroll, transfer
   between classes, mark as withdrawn or transferred out
+- Student photos and documents (birth certificate, transfer letter, …) in a private Storage bucket; staff and
+  the student's guardians can open them
+- Admissions: applications, interviews, accept / reject, enroll (creates the student, class and guardian)
+- Registrar role: manages students and admissions without administrator rights
 - Academic history per student: classes by year, attendance totals, results per subject and term
 - Year-end promotion: promote, repeat or graduate students into the next year's classes
 - Staff: profiles (employee ID, qualification, hire date, employment type, emergency contact) visible to
@@ -21,6 +25,11 @@ A standalone school management app for administrators, teachers and parents. It 
   teacher view, today's lessons on the teacher dashboard; the database refuses teacher, room and class clashes
 - Holidays: school calendar; holidays are not counted as leave days
 - Attendance: daily register per class (present / late / absent / excused)
+- Performance records: classroom observations and evaluations rated on five criteria, commendations and
+  concerns; staff read the ones shared with them and acknowledge or reply
+- Payroll: salaries, allowances and deductions, monthly runs with income tax (editable brackets, defaults from
+  Proclamation 1395/2025), 7% / 11% pension and unpaid-leave deductions; payslips, bank list and CSV export;
+  staff see their own payslips once a month is finalized
 - Staff attendance: daily register (present / late / absent / on leave, check-in time) and monthly summary
 - Leave: editable leave types (defaults from the Ethiopian Labour Proclamation), requests with working-day
   counts and balances, approval by an administrator, approved days marked on leave automatically

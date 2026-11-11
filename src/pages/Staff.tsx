@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StaffPerformance from "@/components/StaffPerformance";
 
 // One row per person: school_members has a row per role.
 type Person = { userId: string; name: string; email: string | null; phone: string | null; rows: Member[]; roles: SchoolRole[]; isStaff: boolean };
@@ -64,7 +65,7 @@ export default function Staff() {
       p.name ||= m.full_name ?? "";
       p.phone ??= m.phone;
       p.email ??= m.email;
-      p.isStaff ||= m.role === "teacher" || m.role === "school_admin";
+      p.isStaff ||= m.role === "teacher" || m.role === "school_admin" || m.role === "registrar";
       byUser.set(m.user_id, p);
     }
     return [...byUser.values()].sort((a, b) => (a.name || a.email || "").localeCompare(b.name || b.email || ""));
@@ -221,10 +222,12 @@ function PersonDialog({ person, profile, load, yearName, onClose }: {
               <TabsList>
                 {person.isStaff && <TabsTrigger value="profile">Profile</TabsTrigger>}
                 {person.isStaff && <TabsTrigger value="load">Teaching</TabsTrigger>}
+                {person.isStaff && <TabsTrigger value="performance">Performance</TabsTrigger>}
                 <TabsTrigger value="access">Access</TabsTrigger>
               </TabsList>
               {person.isStaff && <TabsContent value="profile"><ProfileForm key={profile?.id ?? "new"} person={person} profile={profile} /></TabsContent>}
               {person.isStaff && <TabsContent value="load"><LoadTab load={load} yearName={yearName} /></TabsContent>}
+              {person.isStaff && <TabsContent value="performance"><StaffPerformance userId={person.userId} /></TabsContent>}
               <TabsContent value="access"><AccessTab person={person} onClose={onClose} /></TabsContent>
             </Tabs>
           </>

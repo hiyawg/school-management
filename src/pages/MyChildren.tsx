@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import { className, studentName, type Student } from "@/lib/types";
 import StudentHistory from "@/components/StudentHistory";
+import { StudentDocuments, StudentPhoto } from "@/components/StudentFiles";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -67,9 +68,12 @@ function ChildCard({ child }: { child: Student }) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">{studentName(child)}</CardTitle>
-        <CardDescription>{data?.cls ? className(data.cls) : "Not enrolled in a class"}</CardDescription>
+      <CardHeader className="flex-row items-center gap-4 space-y-0">
+        <StudentPhoto student={child} size={64} />
+        <div>
+          <CardTitle className="text-lg">{studentName(child)}</CardTitle>
+          <CardDescription>{data?.cls ? className(data.cls) : "Not enrolled in a class"}</CardDescription>
+        </div>
       </CardHeader>
       <CardContent className="grid gap-6 md:grid-cols-3">
         <div>
@@ -107,6 +111,11 @@ function ChildCard({ child }: { child: Student }) {
         <details className="md:col-span-3">
           <summary className="cursor-pointer text-sm font-medium">Full history by year</summary>
           <div className="mt-3"><StudentHistory studentId={child.id} /></div>
+        </details>
+
+        <details className="md:col-span-3">
+          <summary className="cursor-pointer text-sm font-medium">Documents</summary>
+          <div className="mt-3"><StudentDocuments student={child} /></div>
         </details>
 
         <div className="space-y-1 rounded-md border p-3 md:col-span-3">

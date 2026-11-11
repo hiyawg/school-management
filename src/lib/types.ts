@@ -1,4 +1,4 @@
-export type SchoolRole = "school_admin" | "teacher" | "parent" | "student";
+export type SchoolRole = "school_admin" | "teacher" | "registrar" | "parent" | "student";
 export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 export type AssessmentKind = "quiz" | "test" | "assignment" | "midterm" | "final" | "learning_skill" | "learning_exam";
 
@@ -40,7 +40,116 @@ export type Student = {
   medical_notes: string | null;
   status: StudentStatus;
   left_on: string | null;
+  photo_path: string | null;
 };
+
+export type DocumentKind = "birth_certificate" | "transfer_letter" | "report_card" | "medical" | "id_document" | "photo_id" | "other";
+export const documentKindLabel: Record<DocumentKind, string> = {
+  birth_certificate: "Birth certificate",
+  transfer_letter: "Transfer letter",
+  report_card: "Previous report card",
+  medical: "Medical record",
+  id_document: "ID / Kebele ID",
+  photo_id: "Passport photo",
+  other: "Other",
+};
+export type StudentDocument = { id: string; student_id: string; kind: DocumentKind; name: string; path: string; size_bytes: number | null; created_at: string };
+
+export type AdmissionStatus = "applied" | "interview" | "accepted" | "rejected" | "withdrawn" | "enrolled";
+export const admissionStatusLabel: Record<AdmissionStatus, string> = {
+  applied: "Applied",
+  interview: "Interview",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  withdrawn: "Withdrawn",
+  enrolled: "Enrolled",
+};
+export type Application = {
+  id: string;
+  academic_year_id: string | null;
+  grade_applied: number;
+  first_name: string;
+  father_name: string;
+  grandfather_name: string | null;
+  gender: "M" | "F" | null;
+  date_of_birth: string | null;
+  previous_school: string | null;
+  address: string | null;
+  guardian_name: string | null;
+  guardian_phone: string | null;
+  guardian_relationship: string | null;
+  guardian_email: string | null;
+  notes: string | null;
+  status: AdmissionStatus;
+  interview_on: string | null;
+  decision_note: string | null;
+  student_id: string | null;
+  created_at: string;
+};
+
+export type EvaluationKind = "observation" | "evaluation" | "commendation" | "concern";
+export const evaluationKindLabel: Record<EvaluationKind, string> = {
+  observation: "Classroom observation",
+  evaluation: "Performance evaluation",
+  commendation: "Commendation",
+  concern: "Concern",
+};
+// Criteria rated 1–5. Stored by key, so labels can change without touching old records.
+export const EVALUATION_CRITERIA: { key: string; label: string }[] = [
+  { key: "planning", label: "Lesson planning" },
+  { key: "delivery", label: "Teaching delivery" },
+  { key: "management", label: "Classroom management" },
+  { key: "assessment", label: "Assessment and feedback" },
+  { key: "professionalism", label: "Professionalism" },
+];
+export type Evaluation = {
+  id: string;
+  user_id: string;
+  kind: EvaluationKind;
+  date: string;
+  class_subject_id: string | null;
+  ratings: Record<string, number>;
+  overall: number | null;
+  strengths: string | null;
+  improvements: string | null;
+  notes: string | null;
+  shared: boolean;
+  acknowledged_at: string | null;
+  staff_response: string | null;
+};
+
+export type TaxBracket = { up_to: number | null; rate: number };
+export type PayrollSettings = { school_id: string; employee_pension_rate: number; employer_pension_rate: number; tax_brackets: TaxBracket[] };
+export type StaffPay = { id: string; user_id: string; basic_salary: number; pension: boolean; tin: string | null; bank_name: string | null; bank_account: string | null };
+export type PayItem = { id: string; user_id: string; kind: "allowance" | "deduction"; name: string; amount: number; taxable: boolean };
+export type PayrollRun = { id: string; period: string; status: "draft" | "finalized"; working_days: number | null; finalized_at: string | null };
+export type Payslip = {
+  id: string;
+  run_id: string;
+  user_id: string;
+  full_name: string | null;
+  tin: string | null;
+  bank_name: string | null;
+  bank_account: string | null;
+  basic_salary: number;
+  unpaid_leave_days: number;
+  unpaid_leave_deduction: number;
+  earned_basic: number;
+  allowances: { name: string; amount: number; taxable: boolean }[];
+  taxable_allowances: number;
+  non_taxable_allowances: number;
+  gross_pay: number;
+  taxable_income: number;
+  income_tax: number;
+  pension_employee: number;
+  pension_employer: number;
+  deductions: { name: string; amount: number }[];
+  other_deductions: number;
+  net_pay: number;
+};
+
+export const birr = (n: number | string | null | undefined) =>
+  n === null || n === undefined ? "—" : Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export type StudentStatus = "active" | "graduated" | "withdrawn" | "transferred_out";
 export type PromotionResult = "promoted" | "repeated" | "graduated";
@@ -135,6 +244,7 @@ export type Assessment = {
 export const roleLabel: Record<SchoolRole, string> = {
   school_admin: "Administrator",
   teacher: "Teacher",
+  registrar: "Registrar",
   parent: "Parent",
   student: "Student",
 };
