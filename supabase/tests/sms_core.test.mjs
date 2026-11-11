@@ -26,6 +26,7 @@ const U = {
   stranger: "00000000-0000-0000-0000-00000000000d",
   teacher2: "00000000-0000-0000-0000-00000000000e",
   registrar: "00000000-0000-0000-0000-00000000000f",
+  accountant: "00000000-0000-0000-0000-000000000010",
 };
 
 let failures = 0;
@@ -52,7 +53,7 @@ console.log(`PASS  ${migrations.length} migrations applied`);
 
 await db.exec(`INSERT INTO auth.users VALUES
   ('${U.admin}', 'admin@school.et'), ('${U.teacher}', 'teacher@school.et'),
-  ('${U.parent}', 'parent@mail.et'), ('${U.stranger}', 'other@mail.et'), ('${U.teacher2}', 'teacher2@school.et'), ('${U.registrar}', 'registrar@school.et');`);
+  ('${U.parent}', 'parent@mail.et'), ('${U.stranger}', 'other@mail.et'), ('${U.teacher2}', 'teacher2@school.et'), ('${U.registrar}', 'registrar@school.et'), ('${U.accountant}', 'accountant@school.et');`);
 
 const school = (await as(U.admin, "INSERT INTO sms.schools (name) VALUES ('Test School') RETURNING id")).rows[0].id;
 const adminRole = await as(U.admin, "SELECT role FROM sms.school_members WHERE school_id = $1", [school]);
@@ -419,9 +420,77 @@ await as(U.admin, "INSERT INTO sms.school_events (school_id, title, starts_on, e
 check("parent sees only events for everyone", (await as(U.parent, "SELECT title FROM sms.school_events")).rows.map((r) => r.title).join() === "Parents day");
 check("teacher sees staff events too", (await as(U.teacher, "SELECT * FROM sms.school_events")).rows.length === 2);
 
+// Finance.
+await as(U.admin, "SELECT sms.add_member_by_email($1, 'accountant@school.et', 'accountant', 'Accountant')", [school]);
+const structure = (await as(U.accountant, "INSERT INTO sms.fee_structures (school_id, academic_year_id, grade_level, name) VALUES ($1, $2, 7, 'Grade 7') RETURNING id", [school, year])).rows[0].id;
+await as(U.accountant, `INSERT INTO sms.fee_items (school_id, structure_id, name, kind, frequency, amount) VALUES
+  ($1, $2, 'Registration', 'registration', 'once', 500), ($1, $2, 'Tuition', 'tuition', 'monthly', 2000), ($1, $2, 'Transport', 'other', 'monthly', 300)`, [school, structure]);
+check("teacher cannot edit fees", !!(await fails(U.teacher, "INSERT INTO sms.fee_items (school_id, structure_id, name, amount) VALUES ($1, $2, 'x', 1)", [school, structure])));
+check("parent can read the fee structure", (await as(U.parent, "SELECT * FROM sms.fee_items")).rows.length === 3);
+await as(U.accountant, "INSERT INTO sms.student_discounts (school_id, student_id, academic_year_id, name, kind, value) VALUES ($1, $2, $3, 'Sibling', 'percent', 10)", [school, kid, year]);
+await as(U.accountant, "INSERT INTO sms.student_discounts (school_id, student_id, academic_year_id, name, kind, value, applies_to) VALUES ($1, $2, $3, 'Full scholarship', 'fixed', 99999, 'all')", [school, otherKid, year]);
+check("percent discount over 100 is refused",
+  !!(await fails(U.accountant, "INSERT INTO sms.student_discounts (school_id, student_id, academic_year_id, name, kind, value) VALUES ($1, $2, $3, 'x', 'percent', 150)", [school, kid, year])));
+
+const billMonth = (user, key = "2026-11") => as(user, "SELECT sms.generate_invoices($1, 'monthly', $2, 'Tuition · November', '2026-11-30') AS n", [year, key]);
+check("teacher cannot create invoices", !!(await fails(U.teacher, "SELECT sms.generate_invoices($1, 'monthly', '2026-11', 'x', null)", [year])));
+const enrolledNow = Number((await db.query("SELECT count(DISTINCT e.student_id) AS n FROM sms.enrollments e JOIN sms.classes c ON c.id = e.class_id JOIN sms.students s ON s.id = e.student_id WHERE c.academic_year_id = $1 AND e.status = 'active' AND s.status = 'active'", [year])).rows[0].n);
+const firstRun = Number((await billMonth(U.accountant)).rows[0].n);
+check("billing run invoices every enrolled student", firstRun === enrolledNow && firstRun > 0, `${firstRun} of ${enrolledNow}`);
+check("running it again creates nothing", Number((await billMonth(U.accountant)).rows[0].n) === 0);
+const bal = async (sid, key) => (await as(U.accountant, "SELECT * FROM sms.invoice_balances b JOIN sms.invoices i ON i.id = b.invoice_id WHERE b.student_id = $1 AND i.period_key = $2", [sid, key])).rows[0];
+const kidNov = await bal(kid, "2026-11");
+check("discount applies to tuition only", Number(kidNov.total) === 2100, String(kidNov.total));
+check("invoice is numbered", /^INV-\d{4}$/.test(kidNov.number), kidNov.number);
+check("full scholarship never goes below zero", Number((await bal(otherKid, "2026-11")).total) === 0);
+await as(U.accountant, "SELECT sms.generate_invoices($1, 'once', 'registration', 'Registration', null)", [year]);
+check("one-off fee is billed once", Number((await bal(kid, "registration")).total) === 500);
+check("one-off fee is not billed again under another name",
+  Number((await as(U.accountant, "SELECT sms.generate_invoices($1, 'once', 'registration-again', 'x', null) AS n", [year])).rows[0].n) === 0);
+
+const pay = (user, invoiceId, sid, amount) => as(user,
+  "INSERT INTO sms.payments (school_id, invoice_id, student_id, amount, method) VALUES ($1, $2, $3, $4, 'telebirr') RETURNING receipt_number", [school, invoiceId, sid, amount]);
+const receipt = (await pay(U.accountant, kidNov.invoice_id, kid, 1000)).rows[0].receipt_number;
+check("payment gets a receipt number", /^RCP-\d{4}$/.test(receipt), receipt);
+check("overpaying is refused", /more than the 1,100.00 still owed/.test(await fails(U.accountant,
+  "INSERT INTO sms.payments (school_id, invoice_id, student_id, amount) VALUES ($1, $2, $3, 2000)", [school, kidNov.invoice_id, kid]) ?? ""));
+const after = await bal(kid, "2026-11");
+check("balance and state follow payments", Number(after.balance) === 1100 && after.state === "partial", `${after.balance} ${after.state}`);
+check("teacher cannot record payments", !!(await fails(U.teacher,
+  "INSERT INTO sms.payments (school_id, invoice_id, student_id, amount) VALUES ($1, $2, $3, 1)", [school, kidNov.invoice_id, kid])));
+check("payments cannot be edited", !!(await fails(U.accountant, "UPDATE sms.payments SET amount = 1 WHERE receipt_number = $1", [receipt])));
+check("invoice lines are locked once paid",
+  /has payments/.test(await fails(U.accountant, "INSERT INTO sms.invoice_lines (school_id, invoice_id, description, amount) VALUES ($1, $2, 'Fine', 50)", [school, kidNov.invoice_id]) ?? ""));
+check("invoice with payments cannot be voided", /void them first/.test(await fails(U.accountant, "SELECT sms.void_invoice($1, 'mistake')", [kidNov.invoice_id]) ?? ""));
+check("voiding needs a reason", /reason/.test(await fails(U.accountant, "SELECT sms.void_payment(id, ' ') FROM sms.payments WHERE receipt_number = $1", [receipt]) ?? ""));
+await as(U.accountant, "SELECT sms.void_payment(id, 'Wrong student') FROM sms.payments WHERE receipt_number = $1", [receipt]);
+check("voided payment no longer counts", Number((await bal(kid, "2026-11")).balance) === 2100);
+await as(U.accountant, "SELECT sms.void_invoice($1, 'Billed twice')", [kidNov.invoice_id]);
+check("void invoice can be billed again", Number((await billMonth(U.accountant)).rows[0].n) === 1);
+
+const parentInvoices = (await as(U.parent, "SELECT DISTINCT student_id FROM sms.invoices")).rows.map((r) => r.student_id);
+const parentKids = (await as(U.parent, "SELECT student_id FROM sms.guardians WHERE user_id = $1", [U.parent])).rows.map((r) => r.student_id);
+check("parent sees only their children's invoices", parentInvoices.length > 0 && parentInvoices.every((id) => parentKids.includes(id)));
+check("parent sees their payments", (await as(U.parent, "SELECT * FROM sms.payments")).rows.every((r) => parentKids.includes(r.student_id)));
+check("teacher sees no invoices", (await as(U.teacher, "SELECT * FROM sms.invoices")).rows.length === 0);
+
+await as(U.accountant, "INSERT INTO sms.budget_lines (school_id, academic_year_id, category, amount) VALUES ($1, $2, 'Utilities', 20000)", [school, year]);
+await as(U.accountant, "INSERT INTO sms.expenses (school_id, academic_year_id, category, description, amount) VALUES ($1, $2, 'Utilities', 'Electricity', 1800)", [school, year]);
+check("teacher sees no expenses", (await as(U.teacher, "SELECT * FROM sms.expenses")).rows.length === 0);
+const payroll = (await as(U.accountant, "SELECT * FROM sms.payroll_totals($1, '2026-12-01', '2026-12-31')", [school])).rows;
+check("accountant sees finalized payroll totals", payroll.length === 1 && Number(payroll[0].total_cost) > 0);
+check("accountant cannot read individual payslips", (await as(U.accountant, "SELECT * FROM sms.payslips")).rows.length === 0);
+check("teacher cannot see payroll totals", !!(await fails(U.teacher, "SELECT * FROM sms.payroll_totals($1, '2026-01-01', '2027-12-31')", [school])));
+check("accountant cannot run payroll", !!(await fails(U.accountant, "SELECT sms.generate_payroll($1, '2027-01-01')", [school])));
+
+const paidInv = (await bal(newStudent, "2026-11"));
+await pay(U.accountant, paidInv.invoice_id, newStudent, 100);
+check("deleting a student with invoices and payments works",
+  (await fails(U.admin, "DELETE FROM sms.students WHERE id = $1", [newStudent])) === null);
+
 // Deleting accounts must never be blocked by school data.
 try {
-  await db.exec(`DELETE FROM auth.users WHERE id IN ('${U.admin}', '${U.teacher}', '${U.parent}', '${U.teacher2}', '${U.registrar}');`);
+  await db.exec(`DELETE FROM auth.users WHERE id IN ('${U.admin}', '${U.teacher}', '${U.parent}', '${U.teacher2}', '${U.registrar}', '${U.accountant}');`);
   const left = await db.query("SELECT created_by FROM sms.schools WHERE id = $1", [school]);
   check("deleting user accounts is never blocked", left.rows[0].created_by === null);
 } catch (e) {
