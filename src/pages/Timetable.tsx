@@ -99,7 +99,10 @@ function ClassTimetable() {
 
   useEffect(() => { if (!classId && classes[0]) setClassId(classes[0].id); }, [classes, classId]);
 
-  const teacherName = (id: string | null) => teachers.find((t) => t.user_id === id)?.full_name ?? (id ? "Teacher" : "No teacher");
+  const teacherName = (id: string | null) => {
+    const t = teachers.find((x) => x.user_id === id);
+    return t?.full_name ?? t?.email ?? (id ? "Teacher" : "No teacher");
+  };
   const slotAt = (weekday: number, periodId: string) => slots.find((s) => s.weekday === weekday && s.period_id === periodId);
   const scheduled = (subjectId: string) => slots.filter((s) => s.class_subject_id === subjectId).length;
 
@@ -332,7 +335,8 @@ function BellSchedule() {
   const add = async (e: FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from("periods").insert({
-      school_id: school!.id, name: f.name.trim() || `Period ${periods.filter((p) => !p.is_break).length + 1}`,
+      school_id: school!.id,
+      name: f.name.trim() || (f.isBreak ? "Break" : `Period ${periods.filter((p) => !p.is_break).length + 1}`),
       starts_at: f.start, ends_at: f.end, is_break: f.isBreak,
     });
     if (error) {

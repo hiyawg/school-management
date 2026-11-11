@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePrompt } from "@/components/PromptDialog";
 
 const statusBadge: Record<LeaveStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", variant: "outline" },
@@ -245,6 +246,7 @@ function Requests() {
   const { data: staff = [] } = useStaffPeople();
   const period = useLeavePeriod();
   const [show, setShow] = useState<"pending" | "all">("pending");
+  const [promptDialog, ask] = usePrompt();
   const visible = requests.filter((r) => show === "all" || r.status === "pending");
 
   const nameOf = (id: string) => staff.find((p) => p.userId === id)?.name ?? "Former staff member";
@@ -254,7 +256,9 @@ function Requests() {
       && x.start_date >= period.from && x.start_date <= period.to).reduce((n, x) => n + Number(x.days), 0);
 
   const decide = async (r: LeaveRequest, approve: boolean) => {
-    const note = prompt(approve ? "Note to the requester (optional)" : "Reason for rejecting (optional)");
+    const note = await ask(approve
+      ? { title: `Approve ${nameOf(r.user_id)}'s leave`, label: "Note to the requester (optional)", confirmLabel: "Approve" }
+      : { title: `Reject ${nameOf(r.user_id)}'s leave`, label: "Reason (optional)", confirmLabel: "Reject" });
     if (note === null) return;
     const { error } = await supabase.rpc("decide_leave", { _request_id: r.id, _approve: approve, _note: note || null });
     if (error) return toast.error(error.message);
@@ -265,6 +269,7 @@ function Requests() {
 
   return (
     <div className="space-y-4">
+      {promptDialog}
       <Select value={show} onValueChange={(v) => setShow(v as typeof show)}>
         <SelectTrigger className="sm:w-48"><SelectValue /></SelectTrigger>
         <SelectContent>

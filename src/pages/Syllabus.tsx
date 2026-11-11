@@ -109,7 +109,7 @@ function SyllabusEditor() {
       const { data: cUnits, error: uError } = await curriculum.from("unit").select("unit_id, name, description").eq("grade_id", g.grade_id);
       if (uError) throw uError;
       const { data: cTopics, error: tError } = cUnits?.length
-        ? await curriculum.from("topic").select("topic_id, unit_id, name").in("unit_id", cUnits.map((u) => u.unit_id))
+        ? await curriculum.from("topic").select("topic_id, unit_id, name, created_at").in("unit_id", cUnits.map((u) => u.unit_id))
         : { data: [], error: null };
       if (tError) throw tError;
       const have = new Set(units.map((u) => u.curriculum_unit_id));
@@ -122,7 +122,9 @@ function SyllabusEditor() {
           position: units.length + i + 1, curriculum_unit_id: u.unit_id,
         }).select().single();
         if (error) throw error;
-        const unitTopics = (cTopics ?? []).filter((t) => t.unit_id === u.unit_id).sort((a, b) => natural(a.name, b.name));
+        // The learning app has no topic order; topics were entered in textbook order, so creation time is the best guide.
+        const unitTopics = (cTopics ?? []).filter((t) => t.unit_id === u.unit_id)
+          .sort((a, b) => (a.created_at as string).localeCompare(b.created_at as string) || natural(a.name, b.name));
         if (unitTopics.length) {
           const { error: topicError } = await supabase.from("syllabus_topics").insert(unitTopics.map((t, j) => ({
             school_id: school!.id, unit_id: unit.id, title: t.name, position: j + 1, curriculum_topic_id: t.topic_id,
@@ -338,7 +340,7 @@ function LessonList({ cs, cls, canEdit }: { cs: ClassSubject; cls: SchoolClass; 
           units={units} topics={topics} taught={taughtTopics} onDone={() => { setEditing(null); refresh(); }} />
       )}
       {lessons.length === 0 && <p className="text-sm text-muted-foreground">No lessons yet.</p>}
-      <div className="divide-y rounded-md border text-sm">
+      {lessons.length > 0 && <div className="divide-y rounded-md border text-sm">
         {lessons.map((l) => (
           <div key={l.id} className="space-y-1 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -361,7 +363,7 @@ function LessonList({ cs, cls, canEdit }: { cs: ClassSubject; cls: SchoolClass; 
             {l.notes && <div><span className="text-muted-foreground">Notes:</span> {l.notes}</div>}
           </div>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -459,7 +461,10 @@ function Coverage() {
       });
     },
   });
-  const teacherName = (id: string | null) => teachers.find((t) => t.user_id === id)?.full_name ?? (id ? "Teacher" : "No teacher");
+  const teacherName = (id: string | null) => {
+    const t = teachers.find((x) => x.user_id === id);
+    return t?.full_name ?? t?.email ?? (id ? "Teacher" : "No teacher");
+  };
 
   return (
     <Card>

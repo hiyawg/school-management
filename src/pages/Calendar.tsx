@@ -24,6 +24,7 @@ const TONE: Record<Kind, string> = {
   exam: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100",
   event: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100",
 };
+const DOT: Record<Kind, string> = { term: "bg-sky-500", holiday: "bg-rose-500", exam: "bg-amber-500", event: "bg-emerald-500" };
 const LEGEND: { kind: Kind; label: string }[] = [
   { kind: "term", label: "Year and terms" },
   { kind: "holiday", label: "Holidays" },
@@ -128,7 +129,7 @@ export default function Calendar() {
                 <span className="w-32 shrink-0 tabular-nums text-muted-foreground">
                   {format(new Date(`${i.from}T00:00:00`), "d MMM")}{i.to !== i.from && ` – ${format(new Date(`${i.to}T00:00:00`), "d MMM")}`}
                 </span>
-                <span className={cn("h-2 w-2 shrink-0 rounded-full", TONE[i.kind])} />
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", DOT[i.kind])} />
                 <span>{i.title}{i.detail && <span className="text-muted-foreground"> · {i.detail}</span>}</span>
               </div>
               {isAdmin && i.event && <DeleteEvent event={i.event} />}

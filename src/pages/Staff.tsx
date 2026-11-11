@@ -58,7 +58,9 @@ export default function Staff() {
 
   const people = useMemo(() => {
     const byUser = new Map<string, Person>();
-    for (const m of members) {
+    // Staff rows first, so a person's name is the one the school gave them as staff, not a guardian name.
+    const ordered = [...members].sort((a, b) => Number(a.role === "parent") - Number(b.role === "parent"));
+    for (const m of ordered) {
       const p = byUser.get(m.user_id) ?? { userId: m.user_id, name: "", email: m.email, phone: null, rows: [], roles: [], isStaff: false };
       p.rows.push(m);
       p.roles.push(m.role);
@@ -211,7 +213,7 @@ function PersonDialog({ person, profile, load, yearName, onClose }: {
 }) {
   return (
     <Dialog open={!!person} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="top-[5vh] max-h-[90vh] translate-y-0 overflow-y-auto sm:max-w-2xl">
         {person && (
           <>
             <DialogHeader>

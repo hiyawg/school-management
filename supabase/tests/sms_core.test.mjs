@@ -408,7 +408,7 @@ await as(U.admin, "INSERT INTO sms.exam_invigilators (sitting_id, user_id) VALUE
 const laterExam = (await sitting(U.admin, old6a, oldMath, "2027-01-12", "12:00", "13:00")).rows[0].id;
 await as(U.admin, "INSERT INTO sms.exam_invigilators (sitting_id, user_id) VALUES ($1, $2)", [laterExam, U.teacher]);
 check("moving an exam onto its invigilator's other exam is refused",
-  /invigilator is already supervising English/.test(await fails(U.admin, "UPDATE sms.exam_sittings SET date = '2027-01-11', starts_at = '09:30', ends_at = '10:30' WHERE id = $1", [laterExam]) ?? ""));
+  /^This invigilator is already supervising English \(Grade 7B\) from 09:00 to 10:00$/.test(await fails(U.admin, "UPDATE sms.exam_sittings SET date = '2027-01-11', starts_at = '09:30', ends_at = '10:30' WHERE id = $1", [laterExam]) ?? ""));
 check("parent cannot see an unpublished schedule", (await as(U.parent, "SELECT * FROM sms.exam_sittings")).rows.length === 0);
 await as(U.admin, "UPDATE sms.exam_periods SET published = true WHERE id = $1", [examPeriod]);
 check("parent sees a published schedule", (await as(U.parent, "SELECT * FROM sms.exam_sittings")).rows.length === 3);

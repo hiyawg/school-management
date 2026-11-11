@@ -91,7 +91,7 @@ function ChildCard({ child }: { child: Student }) {
       </CardHeader>
       <CardContent className="grid gap-6 md:grid-cols-3">
         <div>
-          <div className="text-sm text-muted-foreground">Attendance (last {att.length} days marked)</div>
+          <div className="text-sm text-muted-foreground">Attendance (last {att.length} {att.length === 1 ? "day" : "days"} marked)</div>
           <div className="text-2xl font-semibold tabular-nums">{att.length ? `${Math.round((present / att.length) * 100)}%` : "—"}</div>
           <div className="mt-2 flex flex-wrap gap-1">
             {att.slice(0, 20).map((a) => (

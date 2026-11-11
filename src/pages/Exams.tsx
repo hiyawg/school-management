@@ -165,7 +165,7 @@ function Schedule({ period }: { period: ExamPeriod }) {
       const ids = (sittings as ExamSitting[]).map((s) => s.id);
       const [inv, subs] = await Promise.all([
         ids.length ? supabase.from("exam_invigilators").select("sitting_id, user_id").in("sitting_id", ids) : Promise.resolve({ data: [], error: null }),
-        supabase.from("class_subjects").select("*").in("class_id", classes.map((c) => c.id)),
+        supabase.from("class_subjects").select("*").in("class_id", classes.map((c) => c.id)).order("subject_name"),
       ]);
       const err = inv.error ?? subs.error;
       if (err) throw err;

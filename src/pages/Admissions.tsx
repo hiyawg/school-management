@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePrompt } from "@/components/PromptDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const OPEN: AdmissionStatus[] = ["applied", "interview", "accepted"];
@@ -195,6 +196,7 @@ function ApplicationDetail({ app, onClose }: { app: Application; onClose: () => 
   const [interviewOn, setInterviewOn] = useState(app.interview_on ?? "");
   const [classId, setClassId] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [promptDialog, ask] = usePrompt();
   const matching = classes.filter((c) => c.grade_level === app.grade_applied);
   const others = classes.filter((c) => c.grade_level !== app.grade_applied);
 
@@ -207,7 +209,9 @@ function ApplicationDetail({ app, onClose }: { app: Application; onClose: () => 
   const setStatus = async (status: AdmissionStatus, extra: Partial<Application> = {}) => {
     let note: string | null = null;
     if (status === "rejected" || status === "withdrawn") {
-      note = prompt(status === "rejected" ? "Reason (optional)" : "Note (optional)");
+      note = await ask(status === "rejected"
+        ? { title: `Reject ${app.first_name}'s application`, label: "Reason (optional)", confirmLabel: "Reject" }
+        : { title: `${app.first_name} withdrawn by family`, label: "Note (optional)", confirmLabel: "Mark withdrawn" });
       if (note === null) return;
     }
     setBusy(true);
@@ -248,6 +252,7 @@ function ApplicationDetail({ app, onClose }: { app: Application; onClose: () => 
 
   return (
     <>
+      {promptDialog}
       <DialogHeader>
         <DialogTitle>
           {app.first_name} {app.father_name} {app.grandfather_name}

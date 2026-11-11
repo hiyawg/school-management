@@ -256,7 +256,8 @@ function AddStudentDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
 function StudentDialog({ student, currentClassId, onClose }: { student: Student | null; currentClassId?: string; onClose: () => void }) {
   return (
     <Dialog open={!!student} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      {/* Anchored near the top: tabs have different heights and a centred dialog would jump. */}
+      <DialogContent className="top-[5vh] max-h-[90vh] translate-y-0 overflow-y-auto sm:max-w-2xl">
         {student && (
           <>
             <DialogHeader>

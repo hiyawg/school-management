@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { usePrompt } from "./PromptDialog";
 
 const NONE = "none";
 const kindVariant = (k: EvaluationKind) => (k === "commendation" ? "default" : k === "concern" ? "destructive" : "secondary");
@@ -25,6 +26,7 @@ export default function StaffPerformance({ userId }: { userId: string }) {
   const { school, isAdmin, session } = useSchool();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [promptDialog, ask] = usePrompt();
   const isSelf = session?.user.id === userId;
 
   const { data: records = [] } = useQuery({
@@ -48,7 +50,10 @@ export default function StaffPerformance({ userId }: { userId: string }) {
   };
 
   const acknowledge = async (r: Evaluation) => {
-    const response = prompt("Your reply (optional). It is shown with the record.", r.staff_response ?? "");
+    const response = await ask({
+      title: r.acknowledged_at ? "Edit your reply" : "Acknowledge this record",
+      label: "Your reply (optional), shown with the record", defaultValue: r.staff_response ?? "", confirmLabel: "Save",
+    });
     if (response === null) return;
     const { error } = await supabase.rpc("acknowledge_evaluation", { _id: r.id, _response: response || null });
     if (error) return toast.error(error.message);
@@ -61,6 +66,7 @@ export default function StaffPerformance({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-4 text-sm">
+      {promptDialog}
       {rated.length > 0 && (
         <div className="text-muted-foreground">
           Average rating <b className="text-foreground tabular-nums">{average}</b> / 5 across {rated.length} rated record{rated.length > 1 ? "s" : ""}

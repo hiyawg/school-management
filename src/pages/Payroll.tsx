@@ -258,7 +258,7 @@ function Salaries() {
           </table>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">Only administrators see salaries. Each staff member can see their own on My page.</p>
+      <p className="text-xs text-muted-foreground">Only administrators see salaries. Staff see their own payslips on My page once a month is finalized.</p>
 
       <Dialog open={!!person} onOpenChange={(v) => !v && setEditing(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
