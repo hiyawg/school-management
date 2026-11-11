@@ -1,0 +1,51 @@
+# School Management
+
+A standalone school management app for administrators, teachers and parents. It runs on
+**its own Supabase project**, fully separate from the education app
+(`../backend-genesis-core-a6c853d9`). Nothing in this app can write to the education project.
+
+## Features (v1)
+
+- Register a school; the creator becomes its administrator
+- Academic years, terms, classes (KG–12, sections), subjects per class with a teacher
+- People: add teachers, administrators and parents by email (they need an account in this app first)
+- Students: register with guardian (automatic student IDs), edit profiles and guardians, enroll, transfer
+  between classes, mark as withdrawn or transferred out
+- Academic history per student: classes by year, attendance totals, results per subject and term
+- Year-end promotion: promote, repeat or graduate students into the next year's classes
+- Staff: profiles (employee ID, qualification, hire date, employment type, emergency contact) visible to
+  administrators and the person only; teaching load per teacher
+- Teachers only take attendance for classes they are homeroom or subject teacher of, and only grade their
+  own subjects; administrators can do both everywhere
+- Timetable: bell schedule (5 or 6 days, breaks), weekly lessons per class with periods-per-week targets,
+  teacher view, today's lessons on the teacher dashboard; the database refuses teacher, room and class clashes
+- Holidays: school calendar; holidays are not counted as leave days
+- Attendance: daily register per class (present / late / absent / excused)
+- Staff attendance: daily register (present / late / absent / on leave, check-in time) and monthly summary
+- Leave: editable leave types (defaults from the Ethiopian Labour Proclamation), requests with working-day
+  counts and balances, approval by an administrator, approved days marked on leave automatically
+- Gradebook: weighted assessments per subject and term
+- Parent view: attendance and results for their children
+
+## How it relates to the education app
+
+| | Status |
+| --- | --- |
+| Accounts | Separate. People sign up in each app. |
+| Curriculum | Read-only from the education project with its public key: grades, subjects, units, topics, skills, exam sets. Subjects and learning-app assessments store those IDs. |
+| Learner link (`sms.students.learning_student_id`) | Column ready; can only be set by `sms.set_learning_link`, which only the service role can call. |
+| Importing practice results / showing assignments in the education app | Needs a server-side bridge (Edge Functions in both projects, parent-approved link codes). Not built yet. |
+
+## Setup
+
+1. Create a new project at https://supabase.com/dashboard.
+2. In its SQL Editor, run each file in `supabase/migrations/` in order (oldest first).
+3. Project Settings → Data API → **Exposed schemas**: add `sms`.
+4. Project Settings → API: copy the Project URL and the `anon` public key into `.env`
+   as `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (see `.env.example`).
+5. `npm install` then `npm run dev` (http://localhost:8081).
+
+## Tests
+
+`npm run test:db` runs the migrations in an in-memory Postgres (PGlite) with a stand-in for a
+fresh Supabase project (roles and `auth.users`), then checks access rules.
