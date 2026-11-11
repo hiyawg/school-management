@@ -163,7 +163,7 @@ function MyLeave() {
             return (
               <Card key={t.id}>
                 <CardHeader className="p-3 pb-1"><CardTitle className="text-sm font-medium">{t.name}</CardTitle></CardHeader>
-                <CardContent className="p-3 pt-0">
+                <CardContent className="p-3">
                   {t.days_per_year === null ? (
                     <div className="text-xl font-semibold tabular-nums">{taken} <span className="text-xs font-normal text-muted-foreground">days taken</span></div>
                   ) : (

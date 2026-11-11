@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -33,7 +34,11 @@ const gradeLabel = (g: number) => (g === 0 ? "KG" : `Grade ${g}`);
 export default function Admissions() {
   const { school } = useSchool();
   const [filter, setFilter] = useState("open");
-  const [creating, setCreating] = useState(false);
+  // The ribbon's "New application" opens the form (?new=1).
+  const [params, setParams] = useSearchParams();
+  const [creating, setCreatingState] = useState(params.has("new"));
+  const setCreating = (v: boolean) => { setCreatingState(v); if (!v && params.has("new")) setParams({}, { replace: true }); };
+  useEffect(() => { if (params.has("new")) setCreatingState(true); }, [params]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: apps = [] } = useQuery({

@@ -129,8 +129,8 @@ export default function Reports({ yearId }: { yearId: string }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {tiles.map((t) => (
           <Card key={t.label}>
-            <CardHeader className="p-3 pb-1"><CardTitle className="text-xs font-medium text-muted-foreground">{t.label}</CardTitle></CardHeader>
-            <CardContent className="p-3 pt-0">
+            <CardHeader className="p-3 pb-1"><CardTitle className="text-xs font-medium">{t.label}</CardTitle></CardHeader>
+            <CardContent className="p-3">
               <div className={`text-lg font-semibold tabular-nums ${t.value < 0 ? "text-destructive" : ""}`}>{birr(t.value)}</div>
               {t.note && <div className="text-xs text-muted-foreground">{t.note}</div>}
             </CardContent>

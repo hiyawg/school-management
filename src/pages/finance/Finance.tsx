@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useCurrentYear, useYears } from "@/hooks/useSchoolData";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +11,9 @@ export default function Finance() {
   const { data: years = [] } = useYears();
   const { data: current } = useCurrentYear();
   const [yearId, setYearId] = useState<string>();
+  // The navigation pane links straight to a tab (?tab=payments).
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") ?? "invoices";
   useEffect(() => { if (!yearId && current) setYearId(current.id); }, [current, yearId]);
 
   return (
@@ -24,7 +28,7 @@ export default function Finance() {
       {!yearId ? (
         <p className="text-sm text-muted-foreground">Add an academic year in School setup first.</p>
       ) : (
-        <Tabs defaultValue="invoices">
+        <Tabs value={tab} onValueChange={(t) => setParams({ tab: t }, { replace: true })}>
           <TabsList className="flex-wrap">
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>

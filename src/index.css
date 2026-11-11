@@ -3,49 +3,60 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    :root {
+    --background: 210 24% 95%;
+    --foreground: 215 40% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 215 40% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 158 64% 28%;
+    --popover-foreground: 215 40% 14%;
+    --primary: 211 72% 42%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 20% 94%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 20% 94%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 152 40% 92%;
-    --accent-foreground: 158 64% 22%;
-    --destructive: 0 72% 51%;
+    --secondary: 210 30% 92%;
+    --secondary-foreground: 215 40% 14%;
+    --muted: 210 30% 94%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 208 85% 92%;
+    --accent-foreground: 213 70% 28%;
+    --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 24% 88%;
-    --input: 214 24% 84%;
-    --ring: 158 64% 28%;
-    --radius: 0.5rem;
+    --border: 212 28% 82%;
+    --input: 212 25% 78%;
+    --ring: 211 72% 42%;
+    --radius: 0.25rem;
+    /* Desktop-style chrome: blue panel bars, the ribbon and the navigation pane. */
+    --bar-from: 211 72% 47%;
+    --bar-to: 213 74% 37%;
+    --nav: 214 62% 22%;
+    --nav-hover: 213 58% 30%;
+    --ribbon: 210 33% 98%;
   }
 
   .dark {
-    --background: 222 40% 8%;
-    --foreground: 210 20% 96%;
-    --card: 222 35% 11%;
-    --card-foreground: 210 20% 96%;
-    --popover: 222 35% 11%;
-    --popover-foreground: 210 20% 96%;
-    --primary: 156 55% 45%;
-    --primary-foreground: 222 47% 8%;
-    --secondary: 217 25% 18%;
-    --secondary-foreground: 210 20% 96%;
-    --muted: 217 25% 18%;
-    --muted-foreground: 215 16% 65%;
-    --accent: 158 30% 20%;
-    --accent-foreground: 156 55% 75%;
-    --destructive: 0 63% 45%;
+    --background: 216 35% 9%;
+    --foreground: 210 25% 94%;
+    --card: 216 32% 13%;
+    --card-foreground: 210 25% 94%;
+    --popover: 216 32% 13%;
+    --popover-foreground: 210 25% 94%;
+    --primary: 209 80% 58%;
+    --primary-foreground: 216 40% 8%;
+    --secondary: 216 25% 19%;
+    --secondary-foreground: 210 25% 94%;
+    --muted: 216 25% 18%;
+    --muted-foreground: 213 15% 66%;
+    --accent: 211 45% 24%;
+    --accent-foreground: 209 85% 82%;
+    --destructive: 0 63% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 25% 22%;
-    --input: 217 25% 26%;
-    --ring: 156 55% 45%;
+    --border: 216 25% 24%;
+    --input: 216 25% 28%;
+    --ring: 209 80% 58%;
+    --bar-from: 211 60% 34%;
+    --bar-to: 213 62% 26%;
+    --nav: 216 40% 12%;
+    --nav-hover: 214 35% 20%;
+    --ribbon: 216 30% 11%;
   }
 
   * {
@@ -55,4 +66,21 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+}
+
+/* Data grids: every table reads like a desktop grid (bold blue headers with column rules, highlighted row on
+   hover). Unlayered and with [class] so it outranks the utility classes pages put on <th>. */
+main table thead th,
+main table thead th[class] {
+  color: hsl(var(--primary));
+  font-weight: 600;
+  background: hsl(var(--ribbon));
+  border-right: 1px solid hsl(var(--border));
+}
+main table thead th:last-child,
+main table thead th[class]:last-child {
+  border-right: 0;
+}
+main table tbody tr:hover {
+  background: hsl(var(--accent) / 0.6);
 }
