@@ -350,6 +350,75 @@ check("finalized payroll cannot be regenerated", /finalized/.test(await fails(U.
 check("finalized run cannot be deleted",
   (await as(U.admin, "DELETE FROM sms.payroll_runs WHERE id = $1 RETURNING id", [run])).rows.length === 0);
 
+// Classes: capacity and safe deletion.
+check("class with students cannot be deleted", /has students/.test(await fails(U.admin, "DELETE FROM sms.classes WHERE id = $1", [cls]) ?? ""));
+const small = (await as(U.admin, "INSERT INTO sms.classes (school_id, academic_year_id, grade_level, section, capacity) VALUES ($1, $2, 3, 'A', 1) RETURNING id", [school, year])).rows[0].id;
+await as(U.admin, "INSERT INTO sms.enrollments (school_id, class_id, student_id) VALUES ($1, $2, $3)", [school, small, regKid]);
+check("full class refuses another student",
+  /class is full/.test(await fails(U.admin, "INSERT INTO sms.enrollments (school_id, class_id, student_id) VALUES ($1, $2, $3)", [school, small, newStudent]) ?? ""));
+await as(U.admin, "UPDATE sms.enrollments SET status = 'transferred' WHERE class_id = $1", [small]);
+check("empty class can be deleted", (await fails(U.admin, "DELETE FROM sms.classes WHERE id = $1", [small])) === null);
+
+// Subject list: existing class subjects were turned into the list.
+const mathSubject = (await as(U.admin, "SELECT id FROM sms.subjects WHERE school_id = $1 AND name = 'Mathematics'", [school])).rows[0]?.id;
+check("existing subjects form the school list", !!mathSubject);
+check("class subjects are linked to the list",
+  (await as(U.admin, "SELECT subject_id FROM sms.class_subjects WHERE id = $1", [subj])).rows[0].subject_id === mathSubject);
+check("duplicate subject names are refused",
+  !!(await fails(U.admin, "INSERT INTO sms.subjects (school_id, name) VALUES ($1, 'mathematics')", [school])));
+check("teacher cannot edit the subject list", !!(await fails(U.teacher, "INSERT INTO sms.subjects (school_id, name) VALUES ($1, 'Art')", [school])));
+
+// Syllabus: the subject's teacher at that grade may edit it.
+const unit7 = (await as(U.teacher, "INSERT INTO sms.syllabus_units (school_id, subject_id, grade_level, title) VALUES ($1, $2, 7, 'Unit 1: Integers') RETURNING id", [school, mathSubject])).rows[0].id;
+check("subject teacher writes the syllabus for their grade", !!unit7);
+check("teacher cannot write another grade's syllabus",
+  !!(await fails(U.teacher, "INSERT INTO sms.syllabus_units (school_id, subject_id, grade_level, title) VALUES ($1, $2, 11, 'x')", [school, mathSubject])));
+check("other teacher cannot write this syllabus",
+  !!(await fails(U.teacher2, "INSERT INTO sms.syllabus_topics (school_id, unit_id, title) VALUES ($1, $2, 'x')", [school, unit7])));
+const [t1, t2] = (await as(U.teacher, "INSERT INTO sms.syllabus_topics (school_id, unit_id, position, title) VALUES ($1, $2, 1, 'Adding'), ($1, $2, 2, 'Subtracting') RETURNING id", [school, unit7])).rows.map((r) => r.id);
+check("parent can read the syllabus", (await as(U.parent, "SELECT * FROM sms.syllabus_topics")).rows.length === 2);
+
+// Lesson plans and coverage.
+await as(U.teacher, "INSERT INTO sms.lesson_plans (school_id, class_subject_id, topic_id, title, status, taught_on) VALUES ($1, $2, $3, 'Adding integers', 'taught', '2026-11-10')", [school, subj, t1]);
+await as(U.teacher, "INSERT INTO sms.lesson_plans (school_id, class_subject_id, topic_id, title) VALUES ($1, $2, $3, 'Subtracting')", [school, subj, t2]);
+check("taught lesson needs a date",
+  !!(await fails(U.teacher, "INSERT INTO sms.lesson_plans (school_id, class_subject_id, title, status) VALUES ($1, $2, 'x', 'taught')", [school, subj])));
+check("other teacher cannot plan this subject's lessons",
+  !!(await fails(U.teacher2, "INSERT INTO sms.lesson_plans (school_id, class_subject_id, title) VALUES ($1, $2, 'x')", [school, subj])));
+check("parent cannot see lesson plans", (await as(U.parent, "SELECT * FROM sms.lesson_plans")).rows.length === 0);
+const cov = (await as(U.admin, "SELECT topics, topics_taught FROM sms.syllabus_coverage WHERE class_subject_id = $1", [subj])).rows[0];
+check("coverage counts topics taught", Number(cov.topics) === 2 && Number(cov.topics_taught) === 1, JSON.stringify(cov));
+
+// Exam schedules.
+const examPeriod = (await as(U.admin, "INSERT INTO sms.exam_periods (school_id, academic_year_id, name, starts_on, ends_on) VALUES ($1, $2, 'Finals', '2027-01-11', '2027-01-15') RETURNING id", [school, year])).rows[0].id;
+const sitting = (user, classId, subjectId, date, from, to, room = null) => as(user,
+  "INSERT INTO sms.exam_sittings (school_id, exam_period_id, class_id, class_subject_id, date, starts_at, ends_at, room) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+  [school, examPeriod, classId, subjectId, date, from, to, room]);
+const sittingFails = (...a) => sitting(U.admin, ...a).then(() => null, (e) => e.message);
+const mathExam = (await sitting(U.admin, cls, subj, "2027-01-11", "08:30", "10:30", "Hall")).rows[0].id;
+check("exam outside the period is refused", /within Finals/.test(await sittingFails(cls, english7a, "2027-02-01", "08:30", "10:00") ?? ""));
+check("class cannot sit two exams at once", /class already has Mathematics/.test(await sittingFails(cls, english7a, "2027-01-11", "10:00", "11:00") ?? ""));
+check("exam room cannot be double-booked", /room is already used/.test(await sittingFails(cls7b, math7b, "2027-01-11", "09:00", "10:00", "hall") ?? ""));
+const english7bExam = (await sitting(U.admin, cls7b, english7b, "2027-01-11", "09:00", "10:00", "Room 2")).rows[0].id;
+await as(U.admin, "INSERT INTO sms.exam_invigilators (sitting_id, user_id) VALUES ($1, $2)", [mathExam, U.teacher2]);
+check("invigilator cannot supervise two exams at once",
+  /invigilator is already supervising/.test(await fails(U.admin, "INSERT INTO sms.exam_invigilators (sitting_id, user_id) VALUES ($1, $2)", [english7bExam, U.teacher2]) ?? ""));
+check("parent cannot be an invigilator", !!(await fails(U.admin, "INSERT INTO sms.exam_invigilators (sitting_id, user_id) VALUES ($1, $2)", [english7bExam, U.parent])));
+await as(U.admin, "INSERT INTO sms.exam_invigilators (sitting_id, user_id) VALUES ($1, $2)", [english7bExam, U.teacher]);
+const laterExam = (await sitting(U.admin, old6a, oldMath, "2027-01-12", "12:00", "13:00")).rows[0].id;
+await as(U.admin, "INSERT INTO sms.exam_invigilators (sitting_id, user_id) VALUES ($1, $2)", [laterExam, U.teacher]);
+check("moving an exam onto its invigilator's other exam is refused",
+  /invigilator is already supervising English/.test(await fails(U.admin, "UPDATE sms.exam_sittings SET date = '2027-01-11', starts_at = '09:30', ends_at = '10:30' WHERE id = $1", [laterExam]) ?? ""));
+check("parent cannot see an unpublished schedule", (await as(U.parent, "SELECT * FROM sms.exam_sittings")).rows.length === 0);
+await as(U.admin, "UPDATE sms.exam_periods SET published = true WHERE id = $1", [examPeriod]);
+check("parent sees a published schedule", (await as(U.parent, "SELECT * FROM sms.exam_sittings")).rows.length === 3);
+check("teacher cannot edit exams", (await as(U.teacher, "UPDATE sms.exam_sittings SET room = 'x' WHERE id = $1 RETURNING id", [mathExam])).rows.length === 0);
+
+// Calendar events by audience.
+await as(U.admin, "INSERT INTO sms.school_events (school_id, title, starts_on, ends_on, audience) VALUES ($1, 'Parents day', '2026-12-12', '2026-12-12', 'everyone'), ($1, 'Staff meeting', '2026-12-14', '2026-12-14', 'staff')", [school]);
+check("parent sees only events for everyone", (await as(U.parent, "SELECT title FROM sms.school_events")).rows.map((r) => r.title).join() === "Parents day");
+check("teacher sees staff events too", (await as(U.teacher, "SELECT * FROM sms.school_events")).rows.length === 2);
+
 // Deleting accounts must never be blocked by school data.
 try {
   await db.exec(`DELETE FROM auth.users WHERE id IN ('${U.admin}', '${U.teacher}', '${U.parent}', '${U.teacher2}', '${U.registrar}');`);
