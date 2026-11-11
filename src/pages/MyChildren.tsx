@@ -84,7 +84,7 @@ function ChildCard({ child }: { child: Student }) {
   return (
     <Card>
       <CardHeader className="flex-row items-center gap-4 space-y-0">
-        <StudentPhoto student={child} size={64} />
+        <StudentPhoto student={child} size={64} readOnly />
         <div>
           <CardTitle className="text-lg">{studentName(child)}</CardTitle>
           <CardDescription>{data?.cls ? className(data.cls) : "Not enrolled in a class"}</CardDescription>
@@ -144,12 +144,12 @@ function ChildCard({ child }: { child: Student }) {
 
         <details className="md:col-span-3">
           <summary className="cursor-pointer text-sm font-medium">Fees and payments</summary>
-          <div className="mt-3"><StudentFees student={child} /></div>
+          <div className="mt-3"><StudentFees student={child} readOnly /></div>
         </details>
 
         <details className="md:col-span-3">
           <summary className="cursor-pointer text-sm font-medium">Documents</summary>
-          <div className="mt-3"><StudentDocuments student={child} /></div>
+          <div className="mt-3"><StudentDocuments student={child} readOnly /></div>
         </details>
 
         <div className="space-y-1 rounded-md border p-3 md:col-span-3">

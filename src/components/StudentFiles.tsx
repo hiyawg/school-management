@@ -29,8 +29,8 @@ function useSignedUrl(path: string | null | undefined) {
   });
 }
 
-export function StudentPhoto({ student, size = 96 }: { student: Student; size?: number }) {
-  const { canManageStudents } = useSchool();
+export function StudentPhoto({ student, size = 96, readOnly = false }: { student: Student; size?: number; readOnly?: boolean }) {
+  const canManageStudents = useSchool().canManageStudents && !readOnly;
   const qc = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -81,8 +81,8 @@ export function StudentPhoto({ student, size = 96 }: { student: Student; size?: 
   );
 }
 
-export function StudentDocuments({ student }: { student: Student }) {
-  const { canManageStudents } = useSchool();
+export function StudentDocuments({ student, readOnly = false }: { student: Student; readOnly?: boolean }) {
+  const canManageStudents = useSchool().canManageStudents && !readOnly;
   const qc = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<DocumentKind>("birth_certificate");

@@ -107,7 +107,12 @@ function StructureCard({ structure, items, onChange }: { structure: FeeStructure
         {items.length === 0 && <p className="text-muted-foreground">No fees yet.</p>}
         {items.map((i) => (
           <div key={i.id} className="flex items-center justify-between gap-2 border-b py-1.5 last:border-0">
-            <span>{i.name} <span className="text-muted-foreground">· {feeKindLabel[i.kind]} · {frequencyLabel[i.frequency]}</span></span>
+            <span>
+              {i.name}{" "}
+              <span className="text-muted-foreground">
+                · {i.name.toLowerCase() === feeKindLabel[i.kind].toLowerCase() ? "" : `${feeKindLabel[i.kind]} · `}{frequencyLabel[i.frequency]}
+              </span>
+            </span>
             <span className="flex items-center gap-1 tabular-nums">
               {birr(i.amount)}
               <Button variant="ghost" size="icon" aria-label={`Remove ${i.name}`} onClick={() => act(supabase.from("fee_items").delete().eq("id", i.id))}><Trash2 className="h-4 w-4" /></Button>

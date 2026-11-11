@@ -19,8 +19,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // A student's invoices and payments. Finance staff record and void payments here; families read and print.
-export default function StudentFees({ student }: { student: Student }) {
-  const { canManageFinance } = useSchool();
+// readOnly: the family view, which never shows finance controls (even to an administrator who is also a parent).
+export default function StudentFees({ student, readOnly = false }: { student: Student; readOnly?: boolean }) {
+  const canManageFinance = useSchool().canManageFinance && !readOnly;
   const qc = useQueryClient();
   const { data, isLoading } = useStudentFinance(student.id);
   const [paying, setPaying] = useState<InvoiceBalance | null>(null);
@@ -77,14 +78,14 @@ export default function StudentFees({ student }: { student: Student }) {
           <div className="font-medium">Payments</div>
           <div className="divide-y rounded-md border">
             {payments.map((p) => (
-              <div key={p.id} className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 ${p.voided ? "text-muted-foreground line-through" : ""}`}>
-                <button className="text-left" onClick={() => setViewing({ kind: "receipt", payment: p })}>
+              <div key={p.id} className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 ${p.voided ? "text-muted-foreground" : ""}`}>
+                <button className={`text-left ${p.voided ? "line-through" : ""}`} onClick={() => setViewing({ kind: "receipt", payment: p })}>
                   <span className="font-medium underline-offset-2 hover:underline">{p.receipt_number}</span>
                   <span className="text-muted-foreground"> · {p.paid_on} · {paymentMethodLabel[p.method]}{p.reference && ` ${p.reference}`}</span>
                 </button>
                 <div className="flex items-center gap-2">
-                  <span className="tabular-nums">{birr(p.amount)}</span>
-                  {p.voided && <Badge variant="secondary" className="no-underline">Void: {p.void_reason}</Badge>}
+                  <span className={`tabular-nums ${p.voided ? "line-through" : ""}`}>{birr(p.amount)}</span>
+                  {p.voided && <Badge variant="secondary">Void: {p.void_reason}</Badge>}
                   {canManageFinance && !p.voided && <Button size="sm" variant="ghost" onClick={() => voidPayment(p)}>Void</Button>}
                 </div>
               </div>
@@ -170,7 +171,7 @@ function Letterhead({ title, number }: { title: string; number: string }) {
         <h2 className="text-lg font-semibold">{school?.name}</h2>
         <div className="muted text-xs text-muted-foreground">{[school?.city, school?.region, school?.phone].filter(Boolean).join(" · ")}</div>
       </div>
-      <div className="text-right">
+      <div className="pr-6 text-right">
         <div className="font-semibold">{title}</div>
         <div className="muted text-xs text-muted-foreground">{number}</div>
       </div>
