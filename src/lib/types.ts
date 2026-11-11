@@ -42,6 +42,7 @@ export type Student = {
   status: StudentStatus;
   left_on: string | null;
   photo_path: string | null;
+  user_id: string | null;   // the student's own login, if linked
 };
 
 export type DocumentKind = "birth_certificate" | "transfer_letter" | "report_card" | "medical" | "id_document" | "photo_id" | "other";
@@ -340,3 +341,26 @@ export type Expense = {
   paid_to: string | null; method: PaymentMethod; reference: string | null;
 };
 export type BudgetLine = { id: string; academic_year_id: string; category: string; amount: number };
+
+export type HomeworkState = "done" | "late" | "missing" | "excused";
+export const homeworkStateLabel: Record<HomeworkState, string> = { done: "Done", late: "Late", missing: "Missing", excused: "Excused" };
+export type Homework = {
+  id: string; class_subject_id: string; title: string; instructions: string | null; assigned_on: string; due_on: string | null;
+};
+export type HomeworkStatus = { homework_id: string; student_id: string; status: HomeworkState; note: string | null };
+
+export type Audience = "everyone" | "staff" | "families";
+export const audienceLabel: Record<Audience, string> = { everyone: "Everyone", staff: "Staff only", families: "Families" };
+export type Announcement = {
+  id: string; title: string; body: string; audience: Audience; class_id: string | null; pinned: boolean; author_id: string | null; created_at: string;
+};
+
+export type InboxRow = {
+  conversation_id: string; student_id: string; student_name: string; staff_user_id: string; staff_name: string;
+  subject: string; last_message_at: string; last_message: string | null; unread: number;
+};
+export type Message = { id: string; conversation_id: string; sender_id: string | null; body: string; created_at: string };
+export type VsClass = {
+  class_id: string; class_subject_id: string; subject_name: string; term_id: string | null;
+  student_total: number | null; class_average: number | null; students: number;
+};

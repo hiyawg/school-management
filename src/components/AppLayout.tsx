@@ -1,7 +1,8 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ArrowUpRight, Banknote, BookMarked, CalendarDays, FileText, BookOpen, CalendarCheck, CalendarOff, ClipboardCheck, Clock, ClipboardList, IdCard, Wallet, GraduationCap, LayoutDashboard, LogOut, Plus, Settings, Users, UserSquare } from "lucide-react";
+import { ArrowUpRight, Banknote, Megaphone, MessageSquare, NotebookPen, BookMarked, CalendarDays, FileText, BookOpen, CalendarCheck, CalendarOff, ClipboardCheck, Clock, ClipboardList, IdCard, Wallet, GraduationCap, LayoutDashboard, LogOut, Plus, Settings, Users, UserSquare } from "lucide-react";
 import { toast } from "sonner";
 import { useSchool } from "@/contexts/SchoolContext";
+import { useInbox } from "@/hooks/useSchoolData";
 import { roleLabel } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +11,9 @@ import { cn } from "@/lib/utils";
 export default function AppLayout() {
   const { school, roles, memberships, selectSchool, isAdmin, isStaff, isTeacher, canManageStudents, canManageFinance, signOut, session } = useSchool();
   const navigate = useNavigate();
+  const { data: inbox = [] } = useInbox();
+  const unread = inbox.reduce((n, c) => n + c.unread, 0);
+  const isStudentOnly = roles.includes("student") && !roles.includes("parent");
 
   const links = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard, show: isStaff },
@@ -17,10 +21,13 @@ export default function AppLayout() {
     { to: "/admissions", label: "Admissions", icon: ClipboardList, show: canManageStudents },
     { to: "/attendance", label: "Attendance", icon: CalendarCheck, show: isAdmin || isTeacher },
     { to: "/gradebook", label: "Gradebook", icon: BookOpen, show: isAdmin || isTeacher },
+    { to: "/homework", label: "Homework", icon: NotebookPen, show: isAdmin || isTeacher },
     { to: "/timetable", label: "Timetable", icon: Clock, show: isStaff },
     { to: "/syllabus", label: "Syllabus", icon: BookMarked, show: isAdmin || isTeacher },
     { to: "/exams", label: "Exams", icon: FileText, show: isStaff },
     { to: "/calendar", label: "Calendar", icon: CalendarDays, show: true },
+    { to: "/announcements", label: "Announcements", icon: Megaphone, show: true },
+    { to: "/messages", label: "Messages", icon: MessageSquare, show: true, badge: unread },
     { to: "/leave", label: "Leave", icon: CalendarOff, show: isStaff },
     { to: "/finance", label: "Finance", icon: Banknote, show: canManageFinance },
     { to: "/staff", label: "People", icon: Users, show: isAdmin },
@@ -29,7 +36,7 @@ export default function AppLayout() {
     { to: "/promotion", label: "Promotion", icon: ArrowUpRight, show: isAdmin },
     { to: "/setup", label: "School setup", icon: Settings, show: isAdmin },
     { to: "/me", label: "My page", icon: IdCard, show: isStaff },
-    { to: isStaff ? "/children" : "/", label: "My children", icon: UserSquare, show: roles.includes("parent") },
+    { to: isStaff ? "/children" : "/", label: isStudentOnly ? "My portal" : "My children", icon: UserSquare, show: roles.includes("parent") || roles.includes("student") },
   ].filter((l) => l.show);
 
   const handleSignOut = async () => {
@@ -61,7 +68,7 @@ export default function AppLayout() {
           <div className="text-xs text-muted-foreground">{roles.map((r) => roleLabel[r]).join(" · ")}</div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:pb-4">
-          {links.map(({ to, label, icon: Icon }) => (
+          {links.map(({ to, label, icon: Icon, badge }) => (
             <NavLink
               key={to + label}
               to={to}
@@ -75,6 +82,11 @@ export default function AppLayout() {
             >
               <Icon className="h-4 w-4" />
               {label}
+              {!!badge && (
+                <span className="ml-auto rounded-full bg-primary px-1.5 text-xs font-semibold tabular-nums text-primary-foreground" aria-label={`${badge} unread`}>
+                  {badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

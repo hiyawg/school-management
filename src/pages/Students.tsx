@@ -339,6 +339,7 @@ function ProfileTab({ student, currentClassId, onClose }: { student: Student; cu
           <Pencil className="mr-2 h-4 w-4" /> Edit profile
         </Button>
       )}
+      {canManageStudents && <StudentLogin student={student} />}
       {canManageStudents && student.status === "active" && (
         <div className="space-y-1">
           <Label>{currentClassId ? "Move to class" : "Enroll in class"}</Label>
@@ -542,6 +543,40 @@ function Field({ label, className: cls, children }: { label: string; className?:
     <div className={`space-y-1 ${cls ?? ""}`}>
       <Label>{label}</Label>
       {children}
+    </div>
+  );
+}
+
+// Links the student's own account (they sign up first), so they can use the portal themselves.
+function StudentLogin({ student }: { student: Student }) {
+  const qc = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const link = async (value: string) => {
+    setBusy(true);
+    const { error } = await supabase.rpc("link_student_account", { _student_id: student.id, _email: value });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success(value ? `${student.first_name} can now sign in to the portal` : "Student login removed");
+    setEmail("");
+    qc.invalidateQueries({ queryKey: ["students"] });
+  };
+
+  return (
+    <div className="space-y-1 rounded-md border p-3">
+      <div className="font-medium">Student login</div>
+      {student.user_id ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-muted-foreground">{student.first_name} has their own login and sees their attendance, results, homework and messages.</span>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => confirm("Remove the student's login access?") && link("")}>Remove</Button>
+        </div>
+      ) : (
+        <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); link(email); }}>
+          <Input className="sm:w-72" type="email" required placeholder="Student's email (they sign up first)" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Button type="submit" size="sm" variant="outline" disabled={busy}>Give portal access</Button>
+        </form>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import type { AcademicYear, ClassSubject, Member, Period, SchoolClass, Slot, Student, Subject, Term } from "@/lib/types";
+import type { AcademicYear, ClassSubject, InboxRow, Member, Period, SchoolClass, Slot, Student, Subject, Term } from "@/lib/types";
 
 function must<T>(res: { data: T | null; error: { message: string } | null }): T {
   if (res.error) throw new Error(res.error.message);
@@ -152,5 +152,20 @@ export function useSubjects() {
     queryKey: ["subjects", school?.id],
     enabled: !!school,
     queryFn: async () => must<Subject[]>(await supabase.from("subjects").select("*").eq("school_id", school!.id).order("name")),
+  });
+}
+
+// The signed-in user's conversations, with unread counts; refreshed every minute for the menu badge.
+export function useInbox() {
+  const { school, session } = useSchool();
+  return useQuery({
+    queryKey: ["inbox", school?.id, session?.user.id],
+    enabled: !!school && !!session,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("my_inbox", { _school_id: school!.id });
+      if (error) throw error;
+      return (data ?? []) as InboxRow[];
+    },
   });
 }

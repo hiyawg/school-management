@@ -21,6 +21,8 @@ type SchoolContextValue = {
   canManageStudents: boolean;
   // Administrators and accountants: fees, payments, expenses.
   canManageFinance: boolean;
+  // Guardians and students with their own login: the portal.
+  isFamily: boolean;
   selectSchool: (id: string) => void;
   // Resolves to the number of schools the account belongs to.
   refresh: () => Promise<number>;
@@ -130,6 +132,7 @@ export function SchoolProvider({ children }: { children: ReactNode }) {
       isStaff: ["school_admin", "teacher", "registrar", "accountant"].some((r) => roles.includes(r as SchoolRole)),
       canManageStudents: roles.includes("school_admin") || roles.includes("registrar"),
       canManageFinance: roles.includes("school_admin") || roles.includes("accountant"),
+      isFamily: roles.includes("parent") || roles.includes("student"),
       selectSchool,
       refresh,
       signOut,

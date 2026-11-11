@@ -44,7 +44,12 @@ A standalone school management app for administrators, teachers and parents. It 
 - Leave: editable leave types (defaults from the Ethiopian Labour Proclamation), requests with working-day
   counts and balances, approval by an administrator, approved days marked on leave automatically
 - Gradebook: weighted assessments per subject and term
-- Parent view: attendance and results for their children
+- Family portal (guardians, and students with their own login): overview, attendance by month, results next
+  to the class average, homework with the teacher's marks, fees and receipts, documents, and the child's teachers
+- Homework: teachers set it for their subjects and mark each student done / late / missing / excused
+- Announcements: whole school, staff only or families (administrators); a class's families (its teachers); pinning
+- Messages between families and the child's teachers or the office, with unread counts; administrators can read
+  every conversation for safeguarding but only post in their own
 
 ## How it relates to the education app
 
