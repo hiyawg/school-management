@@ -549,6 +549,28 @@ const vs = (await as(U.parent, "SELECT * FROM sms.student_vs_class($1)", [kid]))
 check("parent sees their child's totals with the class average", vs.length > 0 && vs.every((r) => r.class_average !== null));
 check("stranger gets no class comparison", (await as(U.stranger, "SELECT * FROM sms.student_vs_class($1)", [kid])).rows.length === 0);
 
+// Class events in the calendar.
+const classEvent = (await as(U.teacher,
+  "INSERT INTO sms.school_events (school_id, title, starts_on, ends_on, class_id) VALUES ($1, '7A field trip', '2026-12-20', '2026-12-20', $2) RETURNING id",
+  [school, cls])).rows[0].id;
+check("teacher adds an event for their class", !!classEvent);
+check("teacher cannot add a whole-school event",
+  !!(await fails(U.teacher, "INSERT INTO sms.school_events (school_id, title, starts_on, ends_on) VALUES ($1, 'x', '2026-12-20', '2026-12-20')", [school])));
+check("teacher cannot add an event for a class they don't teach",
+  !!(await fails(U.teacher, "INSERT INTO sms.school_events (school_id, title, starts_on, ends_on, class_id) VALUES ($1, 'x', '2026-12-20', '2026-12-20', $2)", [school, c8a])));
+check("a class event can't be staff-only",
+  !!(await fails(U.admin, "INSERT INTO sms.school_events (school_id, title, starts_on, ends_on, class_id, audience) VALUES ($1, 'x', '2026-12-20', '2026-12-20', $2, 'staff')", [school, cls])));
+check("the class's parents see it", (await as(U.parent, "SELECT id FROM sms.school_events")).rows.some((r) => r.id === classEvent));
+check("the class's students see it", (await as(U.pupil, "SELECT id FROM sms.school_events")).rows.some((r) => r.id === classEvent));
+check("people outside the school don't", (await as(U.stranger, "SELECT * FROM sms.school_events")).rows.length === 0);
+check("other teachers see it (staff)", (await as(U.teacher2, "SELECT id FROM sms.school_events")).rows.some((r) => r.id === classEvent));
+check("another teacher cannot delete it",
+  (await as(U.teacher2, "DELETE FROM sms.school_events WHERE id = $1 RETURNING id", [classEvent])).rows.length === 0);
+check("teacher cannot delete the school's events",
+  (await as(U.teacher, "DELETE FROM sms.school_events WHERE class_id IS NULL RETURNING id")).rows.length === 0);
+check("teacher edits their own event",
+  (await as(U.teacher, "UPDATE sms.school_events SET title = '7A trip to the museum' WHERE id = $1 RETURNING id", [classEvent])).rows.length === 1);
+
 // Resource library.
 const folder = (await as(U.teacher, "INSERT INTO sms.resource_folders (school_id, name) VALUES ($1, 'Grade 7 maths') RETURNING id", [school])).rows[0].id;
 const sheet = (await as(U.teacher, `INSERT INTO sms.resources (school_id, folder_id, kind, title, storage_path)

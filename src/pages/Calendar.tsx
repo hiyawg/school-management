@@ -1,12 +1,12 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, addMonths, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
-import { useCurrentYear, useTerms } from "@/hooks/useSchoolData";
-import type { EventKind, ExamPeriod, Holiday, SchoolEvent } from "@/lib/types";
+import { useClasses, useCurrentYear, useMyAssignments, useTerms } from "@/hooks/useSchoolData";
+import { className, type EventKind, type ExamPeriod, type Holiday, type SchoolClass, type SchoolEvent } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,9 +34,14 @@ const LEGEND: { kind: Kind; label: string }[] = [
 const ymd = (d: Date) => format(d, "yyyy-MM-dd");
 
 export default function Calendar() {
-  const { school, isAdmin } = useSchool();
+  const { school, isAdmin, isTeacher, session } = useSchool();
   const { data: year } = useCurrentYear();
   const { data: terms = [] } = useTerms(year?.id);
+  const { data: classes = [] } = useClasses(year?.id);
+  const mine = useMyAssignments(year?.id);
+  // Administrators add events for the whole school or a class; teachers for the classes they teach.
+  const eventClasses = isAdmin ? classes : isTeacher ? mine.teaching : [];
+  const canAdd = isAdmin || eventClasses.length > 0;
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });
@@ -68,8 +73,9 @@ export default function Calendar() {
   for (const h of data?.holidays ?? []) items.push({ key: `h${h.id}`, title: h.name, from: h.date, to: h.date, kind: "holiday" });
   for (const e of data?.exams ?? []) items.push({ key: `x${e.id}`, title: e.name, from: e.starts_on, to: e.ends_on, kind: "exam" });
   for (const e of data?.events ?? []) {
-    items.push({ key: `e${e.id}`, title: e.title, from: e.starts_on, to: e.ends_on, kind: "event", event: e,
-      detail: [e.audience === "staff" ? "Staff only" : null, e.description].filter(Boolean).join(" · ") || undefined });
+    const cls = classes.find((c) => c.id === e.class_id);
+    items.push({ key: `e${e.id}`, title: cls ? `${className(cls)} · ${e.title}` : e.title, from: e.starts_on, to: e.ends_on, kind: "event", event: e,
+      detail: [e.audience === "staff" ? "Staff only" : cls ? `${className(cls)} families` : null, e.description].filter(Boolean).join(" · ") || undefined });
   }
   const monthFrom = ymd(startOfMonth(month));
   const monthTo = ymd(endOfMonth(month));
@@ -132,13 +138,13 @@ export default function Calendar() {
                 <span className={cn("h-2 w-2 shrink-0 rounded-full", DOT[i.kind])} />
                 <span>{i.title}{i.detail && <span className="text-muted-foreground"> · {i.detail}</span>}</span>
               </div>
-              {isAdmin && i.event && <DeleteEvent event={i.event} />}
+              {i.event && (isAdmin || i.event.created_by === session?.user.id) && <DeleteEvent event={i.event} />}
             </div>
           ))}
         </CardContent>
       </Card>
 
-      {isAdmin && <EventForm />}
+      {canAdd && <EventForm classes={eventClasses} wholeSchool={isAdmin} />}
       {isAdmin && (
         <p className="text-xs text-muted-foreground">
           Year and term dates come from School setup, holidays from Timetable → Holidays, exams from Exams (families see published ones).
@@ -159,19 +165,28 @@ function DeleteEvent({ event }: { event: SchoolEvent }) {
   return <Button variant="ghost" size="icon" aria-label={`Delete ${event.title}`} onClick={remove}><Trash2 className="h-4 w-4" /></Button>;
 }
 
-function EventForm() {
-  const { school } = useSchool();
+const WHOLE_SCHOOL = "school";
+
+function EventForm({ classes, wholeSchool }: { classes: SchoolClass[]; wholeSchool: boolean }) {
+  const { school, session } = useSchool();
   const qc = useQueryClient();
-  const [f, setF] = useState({ title: "", kind: "event" as EventKind, from: "", to: "", audience: "everyone" as SchoolEvent["audience"], description: "" });
+  const [f, setF] = useState({
+    title: "", kind: "event" as EventKind, from: "", to: "", audience: "everyone" as SchoolEvent["audience"], description: "",
+    target: wholeSchool ? WHOLE_SCHOOL : classes[0]?.id ?? "",
+  });
+  const toClass = f.target !== WHOLE_SCHOOL;
+  useEffect(() => { if (!f.target && classes[0]) setF((x) => ({ ...x, target: classes[0].id })); }, [classes, f.target]);
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.from("school_events").insert({
       school_id: school!.id, title: f.title.trim(), kind: f.kind, starts_on: f.from, ends_on: f.to || f.from,
-      audience: f.audience, description: f.description.trim() || null,
+      // A class event is for that class's families and students (and all staff).
+      audience: toClass ? "everyone" : f.audience, class_id: toClass ? f.target : null, created_by: session!.user.id,
+      description: f.description.trim() || null,
     });
     if (error) return toast.error(error.code === "23514" ? "The end date must be on or after the start" : error.message);
-    toast.success("Event added");
+    toast.success(toClass ? "Event added. The class's families and students can see it." : "Event added");
     setF({ ...f, title: "", from: "", to: "", description: "" });
     qc.invalidateQueries({ queryKey: ["calendar"] });
   };
@@ -197,15 +212,27 @@ function EventForm() {
           <div className="space-y-1"><Label>From</Label><Input type="date" required value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></div>
           <div className="space-y-1"><Label>To</Label><Input type="date" min={f.from} value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} /></div>
           <div className="space-y-1">
-            <Label>Who sees it</Label>
-            <Select value={f.audience} onValueChange={(v) => setF({ ...f, audience: v as SchoolEvent["audience"] })}>
-              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+            <Label>For</Label>
+            <Select value={f.target} onValueChange={(v) => setF({ ...f, target: v })}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Choose class" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="everyone">Everyone</SelectItem>
-                <SelectItem value="staff">Staff only</SelectItem>
+                {wholeSchool && <SelectItem value={WHOLE_SCHOOL}>Whole school</SelectItem>}
+                {classes.map((c) => <SelectItem key={c.id} value={c.id}>{className(c)} families</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
+          {!toClass && (
+            <div className="space-y-1">
+              <Label>Who sees it</Label>
+              <Select value={f.audience} onValueChange={(v) => setF({ ...f, audience: v as SchoolEvent["audience"] })}>
+                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="everyone">Everyone</SelectItem>
+                  <SelectItem value="staff">Staff only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1"><Label>Details</Label><Input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
           <Button type="submit">Add</Button>
         </form>

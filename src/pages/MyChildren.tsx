@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSchool } from "@/contexts/SchoolContext";
 import {
   birr, className, homeworkStateLabel, studentName,
-  type Announcement, type AttendanceStatus, type Homework, type HomeworkStatus, type Resource, type SchoolClass, type Student, type VsClass,
+  type Announcement, type AttendanceStatus, type Homework, type SchoolEvent, type HomeworkStatus, type Resource, type SchoolClass, type Student, type VsClass,
 } from "@/lib/types";
 import StudentHistory from "@/components/StudentHistory";
 import { StudentDocuments, StudentPhoto } from "@/components/StudentFiles";
@@ -151,20 +151,24 @@ function Overview({ child, cls }: { child: Student; cls: SchoolClass | null }) {
   const { data } = useQuery({
     queryKey: ["child-overview", child.id, cls?.id],
     queryFn: async () => {
-      const [att, exams, posts] = await Promise.all([
+      const [att, exams, posts, events] = await Promise.all([
         supabase.from("attendance").select("status").eq("student_id", child.id).gte("date", since),
         cls
           ? supabase.from("exam_sittings").select("id, date, starts_at, ends_at, room, class_subject:class_subjects(subject_name), period:exam_periods(name)")
             .eq("class_id", cls.id).gte("date", today()).order("date").order("starts_at").limit(10)
           : Promise.resolve({ data: [], error: null }),
         supabase.from("announcements").select("*").eq("school_id", child.school_id).order("pinned", { ascending: false }).order("created_at", { ascending: false }).limit(3),
+        // Whole-school events and this class's events (the database only returns the ones meant for this family).
+        supabase.from("school_events").select("*").eq("school_id", child.school_id).gte("ends_on", today())
+          .or(cls ? `class_id.is.null,class_id.eq.${cls.id}` : "class_id.is.null").order("starts_on").limit(5),
       ]);
-      const err = att.error ?? exams.error ?? posts.error;
+      const err = att.error ?? exams.error ?? posts.error ?? events.error;
       if (err) throw err;
       return {
         attendance: (att.data ?? []) as { status: AttendanceStatus }[],
         exams: (exams.data ?? []) as unknown as { id: string; date: string; starts_at: string; ends_at: string; room: string | null; class_subject: { subject_name: string }; period: { name: string } }[],
         posts: (posts.data ?? []) as Announcement[],
+        events: (events.data ?? []) as SchoolEvent[],
       };
     },
   });
@@ -181,13 +185,19 @@ function Overview({ child, cls }: { child: Student; cls: SchoolClass | null }) {
       <Stat label="Homework due" value={String(dueSoon.length)} note={dueSoon[0] ? `Next: ${dueSoon[0].subject} · ${dueSoon[0].due_on}` : undefined} />
       <Stat label="Fees outstanding" value={`${birr(owed)} birr`} danger={owed > 0} />
 
-      <Section title="Upcoming exams" empty="No exams scheduled.">
-        {(data?.exams ?? []).map((e) => (
+      <Section title="Coming up" empty="Nothing scheduled.">
+        {[...(data?.events ?? []).map((e) => (
+          <div key={e.id} className="flex flex-wrap justify-between gap-2 py-1">
+            <span>{e.title}{e.class_id && cls && <span className="text-muted-foreground"> · {className(cls)}</span>}</span>
+            <span className="tabular-nums text-muted-foreground">{e.starts_on}{e.ends_on !== e.starts_on && ` – ${e.ends_on}`}</span>
+          </div>
+        )),
+        ...(data?.exams ?? []).map((e) => (
           <div key={e.id} className="flex flex-wrap justify-between gap-2 py-1">
             <span>{e.class_subject.subject_name} <span className="text-muted-foreground">· {e.period.name}</span></span>
             <span className="tabular-nums text-muted-foreground">{e.date} · {e.starts_at.slice(0, 5)}{e.room && ` · ${e.room}`}</span>
           </div>
-        ))}
+        ))]}
       </Section>
       <Section title="Homework due soon" empty="Nothing due.">
         {dueSoon.map((h) => (

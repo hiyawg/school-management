@@ -256,7 +256,10 @@ export type ExamSitting = {
   notes: string | null;
 };
 export type EventKind = "event" | "meeting" | "deadline" | "other";
-export type SchoolEvent = { id: string; title: string; kind: EventKind; starts_on: string; ends_on: string; audience: "everyone" | "staff"; description: string | null };
+export type SchoolEvent = {
+  id: string; title: string; kind: EventKind; starts_on: string; ends_on: string; audience: "everyone" | "staff"; description: string | null;
+  class_id: string | null; created_by: string | null;   // a class event is for that class's families and students
+};
 
 export type Period = { id: string; name: string; starts_at: string; ends_at: string; is_break: boolean };
 export type Slot = { id: string; class_id: string; period_id: string; weekday: number; class_subject_id: string; room: string | null };
