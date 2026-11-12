@@ -147,7 +147,7 @@ export default function AppLayout() {
   const runAction = (a: Action) => (a.run ? a.run() : a.to && navigate(a.to));
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col md:h-screen md:overflow-hidden print:h-auto print:overflow-visible">
       {/* Title row: tab and school on the left; find, messages and the signed-in person on the right. */}
       <header className="flex items-center gap-2 bg-[hsl(var(--nav))] px-3 py-1.5 text-sm text-white print:hidden">
         <span className="rounded-t bg-[hsl(var(--ribbon))] px-3 py-1 font-medium text-[hsl(var(--foreground))]">Home</span>
@@ -197,7 +197,7 @@ export default function AppLayout() {
         ))}
       </div>
 
-      <div className="flex flex-1 flex-col md:flex-row">
+      <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
         {/* Navigation pane. */}
         <aside className={cn("flex flex-col border-r bg-card print:hidden md:shrink-0", collapsed ? "md:w-14" : "md:w-60")}>
           <div className="flex items-center justify-between bg-gradient-to-b from-[hsl(var(--bar-from))] to-[hsl(var(--bar-to))] px-3 py-2 text-white">
@@ -207,7 +207,7 @@ export default function AppLayout() {
               {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
             </button>
           </div>
-          <nav className="flex gap-0.5 overflow-x-auto p-2 md:flex-1 md:flex-col" aria-label={`${current.label} pages`}>
+          <nav className="flex gap-0.5 overflow-x-auto p-2 md:min-h-0 md:shrink md:flex-col md:overflow-y-auto md:overflow-x-hidden" aria-label={`${current.label} pages`}>
             {current.pages.map((p) => (
               <NavLink key={p.to + p.label} to={p.to} title={p.label}
                 className={cn("flex shrink-0 items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium hover:bg-accent",
@@ -219,7 +219,7 @@ export default function AppLayout() {
             ))}
           </nav>
           {/* Every section as a large button, like a desktop navigation pane. */}
-          <div className="flex gap-0.5 overflow-x-auto bg-[hsl(var(--nav))] p-1 md:flex-col">
+          <div className="flex gap-0.5 overflow-x-auto bg-[hsl(var(--nav))] p-1 md:flex-1 md:flex-col md:overflow-y-auto">
             {modules.map((m) => (
               <button key={m.id} onClick={() => navigate(m.pages[0].to)} title={m.label}
                 className={cn("flex shrink-0 items-center gap-2.5 rounded-sm px-3 py-2 text-sm font-medium text-white/90 hover:bg-[hsl(var(--nav-hover))]",
@@ -236,7 +236,7 @@ export default function AppLayout() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-3 md:p-5">
+        <main className="min-w-0 flex-1 overflow-x-hidden p-3 md:overflow-y-auto md:p-5 print:overflow-visible">
           <Outlet />
         </main>
       </div>
