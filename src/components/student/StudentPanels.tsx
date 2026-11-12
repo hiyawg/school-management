@@ -21,17 +21,25 @@ export function ProfileTab({ student, currentClassId, onClose }: { student: Stud
   const { data: year } = useCurrentYear();
   const { data: classes = [] } = useClasses(year?.id);
   const [editing, setEditing] = useState(false);
+  const [target, setTarget] = useState<string>("");
+  const [moving, setMoving] = useState(false);
 
   const moveTo = async (classId: string) => {
+    if (!classId || classId === currentClassId) return;
+    setMoving(true);
     if (currentClassId) {
       const { error } = await supabase.from("enrollments").update({ status: "transferred" })
         .eq("student_id", student.id).eq("class_id", currentClassId);
-      if (error) return toast.error(error.message);
+      if (error) { setMoving(false); return toast.error(error.message); }
     }
     const { error } = await supabase.from("enrollments")
       .upsert({ school_id: school!.id, class_id: classId, student_id: student.id, status: "active" }, { onConflict: "class_id,student_id" });
+    setMoving(false);
     if (error) return toast.error(error.message);
-    toast.success("Enrollment updated");
+    const cls = classes.find((c) => c.id === classId);
+    toast.success(`${student.first_name} ${currentClassId ? "moved to" : "enrolled in"} ${cls ? className(cls) : "the class"}`);
+    setTarget("");
+    qc.invalidateQueries({ queryKey: ["students"] });
     qc.invalidateQueries({ queryKey: ["enrollments"] });
     qc.invalidateQueries({ queryKey: ["roster"] });
     qc.invalidateQueries({ queryKey: ["student-history", student.id] });
@@ -44,8 +52,35 @@ export function ProfileTab({ student, currentClassId, onClose }: { student: Stud
     <div><span className="text-muted-foreground">{label}:</span> {value || "—"}</div>
   );
 
+  const current = classes.find((c) => c.id === currentClassId);
+
   return (
     <div className="space-y-4 text-sm">
+      {/* Class enrollment first: it's what a new student needs before anything else works. */}
+      <div className={`space-y-2 rounded-sm border p-3 ${current ? "" : "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40"}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span><span className="text-muted-foreground">Class{year ? ` (${year.name})` : ""}:</span>{" "}
+            {current ? <b>{className(current)}</b> : <b className="text-amber-700 dark:text-amber-400">Not enrolled</b>}</span>
+        </div>
+        {canManageStudents && student.status === "active" ? (
+          classes.length === 0 ? (
+            <p className="text-xs text-muted-foreground">There are no classes this year yet. Add them in School setup.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Select value={target} onValueChange={setTarget}>
+                <SelectTrigger className="w-48"><SelectValue placeholder={current ? "Move to class…" : "Choose a class…"} /></SelectTrigger>
+                <SelectContent>
+                  {classes.filter((c) => c.id !== currentClassId).map((c) => <SelectItem key={c.id} value={c.id}>{className(c)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button size="sm" disabled={!target || moving} onClick={() => moveTo(target)}>{current ? "Move" : "Enroll"}</Button>
+            </div>
+          )
+        ) : !current && (
+          <p className="text-xs text-muted-foreground">Only an administrator or registrar can enroll students in a class.</p>
+        )}
+      </div>
+
       <div className="flex flex-col gap-4 sm:flex-row">
         <StudentPhoto student={student} />
         <div className="grid flex-1 content-start gap-2 sm:grid-cols-2">
@@ -66,17 +101,6 @@ export function ProfileTab({ student, currentClassId, onClose }: { student: Stud
         </Button>
       )}
       {canManageStudents && <StudentLogin student={student} />}
-      {canManageStudents && student.status === "active" && (
-        <div className="space-y-1">
-          <Label>{currentClassId ? "Move to class" : "Enroll in class"}</Label>
-          <Select value={currentClassId} onValueChange={moveTo}>
-            <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-            <SelectContent>
-              {classes.map((c) => <SelectItem key={c.id} value={c.id}>{className(c)}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
     </div>
   );
 }

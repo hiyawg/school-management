@@ -9,6 +9,7 @@ import { useSchool } from "@/contexts/SchoolContext";
 import { useClasses, useCurrentYear, useStudents } from "@/hooks/useSchoolData";
 import { className, studentName, studentStatusLabel } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -25,6 +26,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 export default function Students() {
   const { canManageStudents, school } = useSchool();
   const [printing, setPrinting] = useState(false);
+  // Ticked students, for enrolling several at once.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bulkClass, setBulkClass] = useState("");
+  const [enrolling, setEnrolling] = useState(false);
+  const qc = useQueryClient();
   const { data: year } = useCurrentYear();
   const { data: classes = [] } = useClasses(year?.id);
   const { data: students = [] } = useStudents();
@@ -114,11 +120,50 @@ export default function Students() {
         </Button>
       </div>
 
+      {canManageStudents && picked.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-sm border border-primary/40 bg-accent px-3 py-2 text-sm">
+          <b>{picked.size} selected</b>
+          <span className="text-muted-foreground">Enroll in</span>
+          <Select value={bulkClass} onValueChange={setBulkClass}>
+            <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Choose class" /></SelectTrigger>
+            <SelectContent>{classes.map((c) => <SelectItem key={c.id} value={c.id}>{className(c)}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button size="sm" disabled={!bulkClass || enrolling} onClick={async () => {
+            setEnrolling(true);
+            const ids = [...picked];
+            // Students already in another class this year move; everyone ends up active in the chosen class.
+            const moving = ids.filter((id) => classOf.has(id) && classOf.get(id) !== bulkClass);
+            const { error: moveError } = moving.length
+              ? await supabase.from("enrollments").update({ status: "transferred" }).in("student_id", moving)
+                  .in("class_id", classes.map((c) => c.id)).neq("class_id", bulkClass).eq("status", "active")
+              : { error: null };
+            const { error } = moveError ? { error: moveError } : await supabase.from("enrollments").upsert(
+              ids.map((id) => ({ school_id: school!.id, class_id: bulkClass, student_id: id, status: "active" })),
+              { onConflict: "class_id,student_id" });
+            setEnrolling(false);
+            if (error) return toast.error(error.message);
+            const cls = classes.find((c) => c.id === bulkClass);
+            toast.success(`${ids.length} student${ids.length > 1 ? "s" : ""} enrolled in ${cls ? className(cls) : "the class"}`);
+            setPicked(new Set());
+            qc.invalidateQueries({ queryKey: ["enrollments"] });
+            qc.invalidateQueries({ queryKey: ["roster"] });
+            qc.invalidateQueries({ queryKey: ["students"] });
+          }}>{enrolling ? "Enrolling…" : "Enroll selected"}</Button>
+          <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Clear</Button>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                {canManageStudents && (
+                  <TableHead className="w-10">
+                    <Checkbox aria-label="Select all shown" checked={visible.length > 0 && visible.every((s) => picked.has(s.id))}
+                      onCheckedChange={(v) => setPicked(v === true ? new Set(visible.filter((s) => s.status === "active").map((s) => s.id)) : new Set())} />
+                  </TableHead>
+                )}
                 <TableHead>Name</TableHead>
                 <TableHead>ID</TableHead>
                 <TableHead>Class</TableHead>
@@ -127,18 +172,26 @@ export default function Students() {
             </TableHeader>
             <TableBody>
               {visible.length === 0 && (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No students</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No students</TableCell></TableRow>
               )}
               {visible.map((s) => {
                 const cls = classes.find((c) => c.id === classOf.get(s.id));
                 return (
                   <TableRow key={s.id} className="cursor-pointer" onClick={() => navigate(`/students/${s.id}`)}>
+                    {canManageStudents && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {s.status === "active" && (
+                          <Checkbox aria-label={`Select ${studentName(s)}`} checked={picked.has(s.id)}
+                            onCheckedChange={(v) => setPicked((p) => { const n = new Set(p); if (v === true) n.add(s.id); else n.delete(s.id); return n; })} />
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium">
                       {studentName(s)} {s.grandfather_name}
                       {s.status !== "active" && <Badge variant="outline" className="ml-2">{studentStatusLabel[s.status]}</Badge>}
                     </TableCell>
                     <TableCell>{s.student_code ?? "—"}</TableCell>
-                    <TableCell>{cls ? className(cls) : <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell>{cls ? className(cls) : <span className="text-amber-700 dark:text-amber-400">Not enrolled</span>}</TableCell>
                     <TableCell>
                       {s.learning_student_id ? (
                         <Badge variant="secondary"><Link2 className="mr-1 h-3 w-3" />Linked</Badge>

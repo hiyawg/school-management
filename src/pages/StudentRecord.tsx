@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { differenceInYears, endOfMonth, format } from "date-fns";
-import { ArrowLeft, CalendarCheck, FileUp, HandCoins, IdCard, ListChecks, MessageSquarePlus, Printer, UserPlus } from "lucide-react";
+import { ArrowLeft, CalendarCheck, FileUp, School as SchoolIcon, HandCoins, IdCard, ListChecks, MessageSquarePlus, Printer, UserPlus } from "lucide-react";
 import AddMenu from "@/components/AddMenu";
 import { toast } from "sonner";
 import { printStudentCards } from "@/components/student/idCardData";
@@ -27,7 +27,7 @@ const STATUS_TONE: Record<AttendanceStatus, string> = {
 export default function StudentRecord() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { canManageFinance, school } = useSchool();
+  const { canManageFinance, canManageStudents, school } = useSchool();
   const { data: year } = useCurrentYear();
   const { data: classes = [] } = useClasses(year?.id);
 
@@ -72,6 +72,7 @@ export default function StudentRecord() {
         <span className="ml-auto flex items-center gap-1">
           <AddMenu label="Actions" icon={ListChecks} align="end" groups={[
             { items: [
+              { label: cls ? "Move to another class" : "Enroll in a class", icon: SchoolIcon, color: "text-blue-700", onSelect: () => jump("panel-profile"), show: canManageStudents },
               { label: "Add guardian", icon: UserPlus, color: "text-emerald-600", onSelect: () => jump("panel-guardians") },
               { label: "Upload document", icon: FileUp, color: "text-orange-600", onSelect: () => jump("panel-documents") },
               { label: "Record payment", icon: HandCoins, color: "text-emerald-700", onSelect: () => jump("panel-fees"), show: canManageFinance },
@@ -109,7 +110,7 @@ export default function StudentRecord() {
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title="Profile"><ProfileTab student={student} currentClassId={cls?.id} onClose={() => undefined} /></Panel>
+        <Panel title="Profile" id="panel-profile"><ProfileTab student={student} currentClassId={cls?.id} onClose={() => undefined} /></Panel>
         <Panel title="Guardians" id="panel-guardians"><GuardiansTab student={student} /></Panel>
         <AttendancePanel studentId={student.id} />
         <Panel title="Documents" id="panel-documents"><StudentDocuments student={student} /></Panel>
