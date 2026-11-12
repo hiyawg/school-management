@@ -200,7 +200,7 @@ export default function Resources() {
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">{resourceKindLabel[r.kind]}{r.size_bytes ? ` · ${Math.ceil(r.size_bytes / 1024)} KB` : ""}</td>
                         <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">{format(new Date(r.updated_at), "dd MMM yyyy")}</td>
-                        <td className="px-3 py-1 text-right" onClick={(e) => e.stopPropagation()}>
+                        <td className="whitespace-nowrap px-3 py-1 text-right" onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" aria-label={`Open ${r.title}`} onClick={() => openResource(r, setViewing)}><ExternalLink className="h-4 w-4" /></Button>
                           {own && (
                             <DropdownMenu>

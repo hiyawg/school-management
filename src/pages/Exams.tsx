@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { localDate } from "@/lib/utils";
 
 const NONE = "none";
 const ALL = "all";
@@ -42,7 +43,7 @@ export default function Exams() {
   });
   useEffect(() => {
     if (periodId && periods.some((p) => p.id === periodId)) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDate();
     setPeriodId((periods.find((p) => p.ends_on >= today) ?? periods[periods.length - 1])?.id);
   }, [periods, periodId]);
   const period = periods.find((p) => p.id === periodId);

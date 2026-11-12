@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { localDate } from "@/lib/utils";
 
 export function downloadCsv(name: string, rows: (string | number | null)[][]) {
   const csv = rows.map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -242,7 +243,7 @@ export function Expenses({ yearId }: { yearId: string }) {
   const [month, setMonth] = useState(format(new Date(), "yyyy-MM"));
   const from = `${month}-01`;
   const to = format(endOfMonth(new Date(`${from}T00:00:00`)), "yyyy-MM-dd");
-  const [f, setF] = useState({ category: "", description: "", amount: "", date: new Date().toISOString().slice(0, 10), paidTo: "", method: "cash" as PaymentMethod, reference: "" });
+  const [f, setF] = useState({ category: "", description: "", amount: "", date: localDate(), paidTo: "", method: "cash" as PaymentMethod, reference: "" });
   const [budget, setBudget] = useState({ category: "", amount: "" });
 
   const { data: expenses = [] } = useQuery({

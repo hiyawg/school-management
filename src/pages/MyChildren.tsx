@@ -18,9 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { cn, localDate } from "@/lib/utils";
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDate();
 const ATTENDANCE_TONE: Record<AttendanceStatus, string> = {
   present: "bg-emerald-500", late: "bg-amber-400", excused: "bg-sky-500", absent: "bg-red-500",
 };
@@ -147,7 +147,7 @@ function useChildHomework(child: Student, cls: SchoolClass | null) {
 }
 
 function Overview({ child, cls }: { child: Student; cls: SchoolClass | null }) {
-  const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+  const since = localDate(new Date(Date.now() - 30 * 864e5));
   const { data } = useQuery({
     queryKey: ["child-overview", child.id, cls?.id],
     queryFn: async () => {

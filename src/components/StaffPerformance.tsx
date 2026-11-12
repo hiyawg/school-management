@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, localDate } from "@/lib/utils";
 import { usePrompt } from "./PromptDialog";
 
 const NONE = "none";
@@ -144,7 +144,7 @@ function useTeacherSubjects(userId: string) {
 function EvaluationForm({ userId, subjects, onDone }: { userId: string; subjects: { id: string; label: string }[]; onDone: () => void }) {
   const { school } = useSchool();
   const [f, setF] = useState({
-    kind: "observation" as EvaluationKind, date: new Date().toISOString().slice(0, 10), subject: NONE,
+    kind: "observation" as EvaluationKind, date: localDate(), subject: NONE,
     strengths: "", improvements: "", notes: "", shared: true,
   });
   const [ratings, setRatings] = useState<Record<string, number>>({});

@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import { cn, localDate } from "@/lib/utils";
 
 const TONE: Record<HomeworkState, string> = {
   done: "bg-emerald-600 text-white border-emerald-600",
@@ -82,6 +82,7 @@ function SubjectHomework({ cs, cls }: { cs: ClassSubject; cls: SchoolClass }) {
     e.preventDefault();
     const { data: created, error } = await supabase.from("homework").insert({
       school_id: school!.id, class_subject_id: cs.id, title: f.title.trim(), instructions: f.instructions.trim() || null, due_on: f.due || null,
+      assigned_on: localDate(),
     }).select().single();
     if (error) return toast.error(error.code === "23514" ? "The due date can't be before today" : error.message);
     if (attach.length) {
@@ -110,7 +111,7 @@ function SubjectHomework({ cs, cls }: { cs: ClassSubject; cls: SchoolClass }) {
         <CardContent>
           <form onSubmit={add} className="grid gap-3 sm:grid-cols-[1fr_180px]">
             <div className="space-y-1"><Label>Title</Label><Input required placeholder="Exercise 3.1, questions 1–10" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
-            <div className="space-y-1"><Label>Due</Label><Input type="date" min={new Date().toISOString().slice(0, 10)} value={f.due} onChange={(e) => setF({ ...f, due: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Due</Label><Input type="date" min={localDate()} value={f.due} onChange={(e) => setF({ ...f, due: e.target.value })} /></div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Instructions</Label>
               <textarea className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

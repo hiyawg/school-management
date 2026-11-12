@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { localDate } from "@/lib/utils";
 
 const NONE = "none";
 const gradeLabel = (g: number) => (g === 0 ? "KG" : `Grade ${g}`);
@@ -321,7 +322,7 @@ function LessonList({ cs, cls, canEdit }: { cs: ClassSubject; cls: SchoolClass; 
 
   const setStatus = async (l: LessonPlan, status: LessonStatus) => {
     const { error } = await supabase.from("lesson_plans").update({
-      status, taught_on: status === "taught" ? l.taught_on ?? new Date().toISOString().slice(0, 10) : null,
+      status, taught_on: status === "taught" ? l.taught_on ?? localDate() : null,
     }).eq("id", l.id);
     if (error) return toast.error(error.message);
     refresh();

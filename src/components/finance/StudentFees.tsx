@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { localDate } from "@/lib/utils";
 
 // A student's invoices and payments. Finance staff record and void payments here; families read and print.
 // readOnly: the family view, which never shows finance controls (even to an administrator who is also a parent).
@@ -122,7 +123,7 @@ export default function StudentFees({ student, readOnly = false }: { student: St
 function PaymentForm({ invoice, onDone }: { invoice: InvoiceBalance; onDone: (p?: Payment) => void }) {
   const { school } = useSchool();
   const qc = useQueryClient();
-  const [f, setF] = useState({ amount: String(Number(invoice.balance)), method: "cash" as PaymentMethod, reference: "", date: new Date().toISOString().slice(0, 10) });
+  const [f, setF] = useState({ amount: String(Number(invoice.balance)), method: "cash" as PaymentMethod, reference: "", date: localDate() });
   const [busy, setBusy] = useState(false);
 
   const save = async (e: FormEvent) => {

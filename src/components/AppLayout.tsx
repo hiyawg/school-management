@@ -147,7 +147,7 @@ export default function AppLayout() {
   const runAction = (a: Action) => (a.run ? a.run() : a.to && navigate(a.to));
 
   return (
-    <div className="flex min-h-screen flex-col md:h-screen md:overflow-hidden print:h-auto print:overflow-visible">
+    <div className="flex min-h-screen flex-col md:h-screen md:overflow-clip print:h-auto print:overflow-visible">
       {/* Title row: tab and school on the left; find, messages and the signed-in person on the right. */}
       <header className="flex items-center gap-2 bg-[hsl(var(--nav))] px-3 py-1.5 text-sm text-white print:hidden">
         <span className="rounded-t bg-[hsl(var(--ribbon))] px-3 py-1 font-medium text-[hsl(var(--foreground))]">Home</span>
@@ -236,7 +236,9 @@ export default function AppLayout() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-x-hidden p-3 md:overflow-y-auto md:p-5 print:overflow-visible">
+        {/* relative: keeps absolutely positioned helpers (e.g. hidden form selects) inside the scrolling area, so the
+            page itself never grows taller than the window. */}
+        <main className="relative min-w-0 flex-1 overflow-x-hidden p-3 md:overflow-y-auto md:p-5 print:overflow-visible">
           <Outlet />
         </main>
       </div>

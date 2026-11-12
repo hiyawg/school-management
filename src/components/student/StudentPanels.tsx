@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { localDate } from "@/lib/utils";
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDate();
 
 // Pieces of a student's record, shared by the student record page.
 export function ProfileTab({ student, currentClassId, onClose }: { student: Student; currentClassId?: string; onClose: () => void }) {
